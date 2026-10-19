@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.exr
+*.png
+!docs/**/*.png
+comfy_bridge/
+.DS_Store
+Thumbs.db
