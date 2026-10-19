@@ -1,0 +1,78 @@
+{
+  "_about": "Where ComfyBridge finds the models a workflow needs. Key = file name (no subfolder). folder = ComfyUI models subfolder. url = direct download (Hugging Face 'blob' links are converted). page = manual download (no direct link). Add your own entries freely.",
+  "qwen_image_2512_fp8_e4m3fn.safetensors": {
+    "folder": "diffusion_models",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/main/split_files/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
+    "licence": "Apache 2.0"
+  },
+  "qwen_image_edit_2509_fp8_e4m3fn.safetensors": {
+    "folder": "diffusion_models",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/blob/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+    "licence": "Apache 2.0"
+  },
+  "qwen_2.5_vl_7b_fp8_scaled.safetensors": {
+    "folder": "text_encoders",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    "licence": "Apache 2.0"
+  },
+  "qwen_image_vae.safetensors": {
+    "folder": "vae",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/main/split_files/vae/qwen_image_vae.safetensors",
+    "licence": "Apache 2.0"
+  },
+  "Qwen-Image-2512-Fun-Controlnet-Union-2602.safetensors": {
+    "folder": "controlnet",
+    "url": "https://huggingface.co/alibaba-pai/Qwen-Image-2512-Fun-Controlnet-Union/blob/main/Qwen-Image-2512-Fun-Controlnet-Union-2602.safetensors",
+    "licence": "check model card"
+  },
+  "Qwen-Image-2512-Lightning-4steps-V1.0-fp32.safetensors": {
+    "folder": "loras",
+    "url": "https://huggingface.co/lightx2v/Qwen-Image-2512-Lightning/blob/main/Qwen-Image-2512-Lightning-4steps-V1.0-fp32.safetensors",
+    "licence": "check model card"
+  },
+  "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors": {
+    "folder": "loras",
+    "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/blob/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+    "licence": "check model card"
+  },
+  "seedvr2_3b_int8_convrot.safetensors": {
+    "folder": "diffusion_models",
+    "url": "https://huggingface.co/Comfy-Org/SeedVR2/blob/main/diffusion_models/seedvr2_3b_int8_convrot.safetensors",
+    "licence": "Apache 2.0"
+  },
+  "seedvr2_ema_vae_fp16.safetensors": {
+    "folder": "vae",
+    "url": "https://huggingface.co/Comfy-Org/SeedVR2/blob/main/vae/seedvr2_ema_vae_fp16.safetensors",
+    "licence": "Apache 2.0"
+  },
+  "controlnet-tile-sdxl-1.0.safetensors": {
+    "folder": "controlnet",
+    "url": "https://huggingface.co/xinsir/controlnet-tile-sdxl-1.0/blob/main/diffusion_pytorch_model.safetensors",
+    "licence": "Apache 2.0"
+  },
+  "epicrealismXL_vxviiCrystalclear.safetensors": {
+    "folder": "checkpoints",
+    "page": "https://civitai.com/search/models?query=epicrealism%20xl",
+    "licence": "check model page"
+  },
+  "qwen_image_2.1_int8_convrot.safetensors": {
+    "folder": "diffusion_models",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/blob/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+    "licence": "check model card"
+  },
+  "qwen_image_2.1_vae_bf16.safetensors": {
+    "folder": "vae",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/blob/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+    "licence": "check model card"
+  },
+  "qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors": {
+    "folder": "text_encoders",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/blob/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors",
+    "licence": "check model card"
+  },
+  "qwen3vl_8b_int8_convrot.safetensors": {
+    "folder": "text_encoders",
+    "url": "https://huggingface.co/Comfy-Org/Qwen3-VL/blob/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+    "licence": "check model card"
+  }
+}

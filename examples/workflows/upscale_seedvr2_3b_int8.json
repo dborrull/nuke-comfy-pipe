@@ -1,0 +1,212 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "plate.png"
+    }
+  },
+  "2": {
+    "class_type": "ResizeImageMaskNode",
+    "inputs": {
+      "input": [
+        "1",
+        0
+      ],
+      "resize_type": "scale by multiplier",
+      "resize_type.multiplier": 2.0,
+      "scale_method": "lanczos"
+    }
+  },
+  "3": {
+    "class_type": "SeedVR2Preprocess",
+    "inputs": {
+      "resized_images": [
+        "2",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "seedvr2_ema_vae_fp16.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "seedvr2_3b_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "6": {
+    "class_type": "VAEEncodeTiled",
+    "inputs": {
+      "pixels": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 128,
+      "temporal_size": 4096,
+      "temporal_overlap": 8
+    }
+  },
+  "7": {
+    "class_type": "SeedVR2Conditioning",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "vae_conditioning": [
+        "6",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "7",
+        1
+      ],
+      "latent_image": [
+        "6",
+        0
+      ],
+      "seed": 42,
+      "steps": 1,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 128,
+      "temporal_size": 4096,
+      "temporal_overlap": 8
+    }
+  },
+  "10": {
+    "class_type": "SeedVR2PostProcessing",
+    "inputs": {
+      "images": [
+        "9",
+        0
+      ],
+      "original_resized_images": [
+        "2",
+        0
+      ],
+      "color_correction_method": "lab"
+    }
+  },
+  "11": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "sRGB -> linear",
+      "precision": "half"
+    }
+  },
+  "_comfy_bridge": {
+    "name": "Upscale - SeedVR2 3B Int8",
+    "description": "Upscales and restores the plate with SeedVR2 (one-step diffusion, ByteDance, Apache 2.0). The result keeps the bigger size: 'match input format' is switched off on load. x2 is safe on 8 GB; x4 on a full HD plate is very heavy.",
+    "output": "color",
+    "plate_node": "1",
+    "match_format": false,
+    "params": [
+      {
+        "label": "scale",
+        "node": "2",
+        "input": "resize_type.multiplier",
+        "type": "float",
+        "min": 1,
+        "max": 4,
+        "tooltip": "Upscale factor. 2 = double resolution. Output size = plate (or working size) x scale."
+      },
+      {
+        "label": "color correction",
+        "node": "10",
+        "input": "color_correction_method",
+        "options": [
+          "lab",
+          "wavelet",
+          "adain",
+          "none"
+        ],
+        "tooltip": "Match the result to the plate colours. lab keeps the grade closest to the plate (best for comp); none lets SeedVR2 shift colours."
+      },
+      {
+        "label": "scale method",
+        "node": "2",
+        "input": "scale_method",
+        "options": [
+          "lanczos",
+          "bicubic",
+          "bilinear",
+          "area",
+          "nearest-exact"
+        ],
+        "tooltip": "How the plate is resized before SeedVR2 restores detail."
+      },
+      {
+        "label": "tile size",
+        "node": "6",
+        "input": "tile_size",
+        "type": "int",
+        "tooltip": "VAE tile size in pixels. Lower it (256) if ComfyUI runs out of VRAM."
+      },
+      {
+        "label": "seed",
+        "node": "8",
+        "input": "seed",
+        "type": "int"
+      },
+      {
+        "label": "model",
+        "node": "5",
+        "input": "unet_name",
+        "type": "string"
+      },
+      {
+        "label": "vae",
+        "node": "4",
+        "input": "vae_name",
+        "type": "string"
+      }
+    ],
+    "source": "Adapted from Comfy-Org workflow_templates: utility_seedvr2_3b_int8_upscale_image (MIT). See THIRD_PARTY_NOTICES.md.",
+    "sampler_params": false
+  }
+}

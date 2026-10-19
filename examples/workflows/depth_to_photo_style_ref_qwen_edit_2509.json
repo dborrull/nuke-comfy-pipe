@@ -1,0 +1,265 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "plate.png"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "style_ref.png"
+    }
+  },
+  "3": {
+    "class_type": "ComfyBridgeLoadEXR",
+    "inputs": {
+      "image": "",
+      "mode": "depth: distance -> 1/z (disparity)",
+      "channels": "first channel (gray)"
+    }
+  },
+  "20": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "21": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "lora_name": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "22": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "shift": 3.0
+    }
+  },
+  "23": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "24": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": [
+        "23",
+        0
+      ],
+      "vae": [
+        "24",
+        0
+      ],
+      "prompt": "A real photograph of a sunlit living and dining room that follows exactly the layout and depth of image 1 (a depth map: near is white, far is dark). Use the interior design, furniture style, materials, colours, textures and decoration of image 2. Shot on a full-frame camera, natural daylight through large windows, realistic detail, no people.",
+      "image1": [
+        "3",
+        0
+      ],
+      "image2": [
+        "2",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": [
+        "23",
+        0
+      ],
+      "vae": [
+        "24",
+        0
+      ],
+      "prompt": "",
+      "image1": [
+        "3",
+        0
+      ],
+      "image2": [
+        "2",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "24",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "22",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "7",
+        0
+      ],
+      "seed": 1234,
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "24",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "9",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "sRGB -> linear",
+      "precision": "half"
+    }
+  },
+  "_comfy_bridge": {
+    "name": "Depth to photo - style reference (Qwen-Image-Edit 2509)",
+    "description": "Builds a new photo from the render's depth only (image 1) in the style of a reference image (image 2, aux input). The model never sees the render, so it cannot copy its CG look: geometry comes from the depth, everything else from the reference and the prompt. Describe the room and the light in the prompt.",
+    "output": "color",
+    "plate_node": "1",
+    "inputs": [
+      {
+        "node": "2",
+        "label": "style reference",
+        "from": "aux",
+        "layer": "rgba",
+        "send": "color"
+      },
+      {
+        "node": "3",
+        "label": "depth",
+        "from": "plate",
+        "layer": "depth",
+        "mono": true
+      }
+    ],
+    "params": [
+      {
+        "label": "instruction",
+        "node": "5",
+        "input": "prompt",
+        "type": "text",
+        "tooltip": "Image 1 = depth map of your render, image 2 = style reference. Describe the room and light."
+      },
+      {
+        "label": "denoise",
+        "node": "8",
+        "input": "denoise",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "tooltip": "1.0 = full reinterpretation (layout still kept by image 1 and depth). Lower keeps more of the render."
+      },
+      {
+        "label": "depth mode",
+        "node": "3",
+        "input": "mode",
+        "options": [
+          "depth: distance -> 1/z (disparity)",
+          "depth: distance (normalize + invert)",
+          "depth: Nuke 1/z (normalize)"
+        ]
+      },
+      {
+        "label": "seed",
+        "node": "8",
+        "input": "seed",
+        "type": "int"
+      },
+      {
+        "label": "steps",
+        "node": "8",
+        "input": "steps",
+        "type": "int",
+        "tooltip": "4 with the Lightning LoRA, 20+ without."
+      },
+      {
+        "label": "cfg",
+        "node": "8",
+        "input": "cfg",
+        "type": "float",
+        "min": 1,
+        "max": 6,
+        "tooltip": "1 with Lightning."
+      },
+      {
+        "label": "Lightning LoRA strength",
+        "node": "21",
+        "input": "strength_model",
+        "type": "float",
+        "min": 0,
+        "max": 1.5
+      },
+      {
+        "label": "model",
+        "node": "20",
+        "input": "unet_name",
+        "type": "string"
+      },
+      {
+        "label": "Lightning LoRA",
+        "node": "21",
+        "input": "lora_name",
+        "type": "string"
+      }
+    ]
+  }
+}

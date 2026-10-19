@@ -1,0 +1,68 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "plate.png"
+    }
+  },
+  "2": {
+    "class_type": "ComfyBridgeLoadEXR",
+    "inputs": {
+      "image": "",
+      "mode": "depth: distance -> 1/z (disparity)",
+      "channels": "auto"
+    }
+  },
+  "3": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "data (as is)",
+      "precision": "half"
+    }
+  },
+  "_comfy_bridge": {
+    "name": "Test - extra input (what ComfyUI sees)",
+    "description": "Sends a layer as float EXR and returns it exactly as the model will see it. Use it to check the depth mode before a long run.",
+    "output": "data",
+    "plate_node": "1",
+    "inputs": [
+      {
+        "node": "2",
+        "label": "layer to check",
+        "from": "plate",
+        "layer": "depth",
+        "mono": true
+      }
+    ],
+    "params": [
+      {
+        "label": "mode",
+        "node": "2",
+        "input": "mode",
+        "options": [
+          "color (linear -> sRGB)",
+          "data (as is)",
+          "data (clamp 0-1)",
+          "depth: distance -> 1/z (disparity)",
+          "depth: distance (normalize + invert)",
+          "depth: Nuke 1/z (normalize)"
+        ]
+      },
+      {
+        "label": "channels",
+        "node": "2",
+        "input": "channels",
+        "options": [
+          "auto",
+          "rgb",
+          "first channel (gray)"
+        ]
+      }
+    ]
+  }
+}

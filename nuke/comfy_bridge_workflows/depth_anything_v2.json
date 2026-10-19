@@ -1,0 +1,56 @@
+{
+  "_comfy_bridge": {
+    "name": "Depth - Depth Anything V2",
+    "description": "Relative depth (near = white), float EXR. ZDefocus: math 'far = 0'. Large model is CC-BY-NC (non-commercial); Small is Apache 2.0.",
+    "output": "data",
+    "params": [
+      {
+        "label": "model",
+        "node": "2",
+        "input": "model",
+        "options": [
+          "depth_anything_v2_vitl_fp32.safetensors",
+          "depth_anything_v2_vits_fp16.safetensors"
+        ],
+        "tooltip": "vitl: best quality, non-commercial licence. vits: fast, Apache 2.0."
+      }
+    ]
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "example.png"
+    }
+  },
+  "2": {
+    "class_type": "DownloadAndLoadDepthAnythingV2Model",
+    "inputs": {
+      "model": "depth_anything_v2_vitl_fp32.safetensors"
+    }
+  },
+  "3": {
+    "class_type": "DepthAnything_V2",
+    "inputs": {
+      "da_model": [
+        "2",
+        0
+      ],
+      "images": [
+        "1",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "3",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "data (as is)",
+      "precision": "float"
+    }
+  }
+}

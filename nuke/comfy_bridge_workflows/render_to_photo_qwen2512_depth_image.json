@@ -1,0 +1,255 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 242,
+      "steps": 40,
+      "cfg": 3,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.9,
+      "model": [
+        "66",
+        0
+      ],
+      "positive": [
+        "129",
+        0
+      ],
+      "negative": [
+        "129",
+        1
+      ],
+      "latent_image": [
+        "141",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "7": {
+    "inputs": {
+      "text": "低分辨率，低画质，画面过饱和，蜡像感，过度光滑，过度锐化，HDR效果，画面具有AI感，插画，卡通，3D渲染，CG，人物，行人",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "37": {
+    "inputs": {
+      "unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "38": {
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader"
+  },
+  "39": {
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "class_type": "VAELoader"
+  },
+  "60": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "sRGB -> linear",
+      "precision": "half"
+    }
+  },
+  "66": {
+    "inputs": {
+      "shift": 3.1,
+      "sampling": "flow",
+      "model": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow"
+  },
+  "81": {
+    "inputs": {
+      "text": "Real photograph shot on a full-frame camera, 35mm lens. Photoreal materials and textures with natural imperfections, realistic light and shadows, natural exposure. Describe your scene here: place, materials, time of day, light, mood.",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "129": {
+    "inputs": {
+      "strength": 0.8,
+      "start_percent": 0,
+      "end_percent": 1,
+      "positive": [
+        "81",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "control_net": [
+        "130",
+        0
+      ],
+      "image": [
+        "142",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "ControlNetApplyAdvanced"
+  },
+  "130": {
+    "inputs": {
+      "control_net_name": "Qwen\\Qwen-Image-2512-Fun-Controlnet-Union-2602.safetensors"
+    },
+    "class_type": "ControlNetLoader"
+  },
+  "141": {
+    "inputs": {
+      "pixels": [
+        "143",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "VAEEncode"
+  },
+  "142": {
+    "inputs": {
+      "image": "depth.png"
+    },
+    "class_type": "LoadImage"
+  },
+  "143": {
+    "inputs": {
+      "image": "plate.png"
+    },
+    "class_type": "LoadImage"
+  },
+  "_comfy_bridge": {
+    "name": "Render to photo - Qwen-Image 2512 + depth image (PNG)",
+    "description": "Same as 'Render to photo' but the depth arrives as a ready-made grey image (near = white): a depth exported from Blender, a Depth Anything pass, or one painted by hand. Use the EXR version for raw Z passes.",
+    "output": "color",
+    "plate_node": "143",
+    "inputs": [
+      {
+        "node": "142",
+        "label": "depth (grey, near = white)",
+        "from": "aux",
+        "layer": "rgba",
+        "send": "data"
+      }
+    ],
+    "params": [
+      {
+        "label": "prompt",
+        "node": "81",
+        "input": "text",
+        "type": "text",
+        "tooltip": "Describe the scene as a photograph: place, materials, time of day, light. The depth keeps the layout."
+      },
+      {
+        "label": "negative",
+        "node": "7",
+        "input": "text",
+        "type": "text"
+      },
+      {
+        "label": "denoise",
+        "node": "3",
+        "input": "denoise",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "tooltip": "How far from the input it may go. 0.6 keeps your render's look, 0.9 reinvents textures (geometry stays thanks to depth)."
+      },
+      {
+        "label": "depth strength",
+        "node": "129",
+        "input": "strength",
+        "type": "float",
+        "min": 0,
+        "max": 1.5
+      },
+      {
+        "label": "depth end",
+        "node": "129",
+        "input": "end_percent",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "tooltip": "Stop following the depth earlier (0.7-0.8) to give the model freedom in the details."
+      },
+      {
+        "label": "seed",
+        "node": "3",
+        "input": "seed",
+        "type": "int"
+      },
+      {
+        "label": "steps",
+        "node": "3",
+        "input": "steps",
+        "type": "int"
+      },
+      {
+        "label": "cfg",
+        "node": "3",
+        "input": "cfg",
+        "type": "float",
+        "min": 1,
+        "max": 8
+      },
+      {
+        "label": "model",
+        "node": "37",
+        "input": "unet_name",
+        "type": "string",
+        "tooltip": "File in models/diffusion_models (fp8, or a GGUF with the GGUF loader workflow)."
+      },
+      {
+        "label": "controlnet",
+        "node": "130",
+        "input": "control_net_name",
+        "type": "string",
+        "tooltip": "File in models/controlnet."
+      }
+    ]
+  }
+}

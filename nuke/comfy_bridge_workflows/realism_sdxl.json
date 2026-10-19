@@ -1,0 +1,203 @@
+{
+  "_comfy_bridge": {
+    "name": "Realism - SDXL img2img + Tile",
+    "description": "Realism pass: rebuilds textures while keeping the composition. Send the clean plate, not the comp.",
+    "output": "color",
+    "params": [
+      {
+        "label": "denoise",
+        "node": "8",
+        "input": "denoise",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "tooltip": "0.3 safe, 0.45-0.5 more realism, above 0.55 the model starts inventing objects."
+      },
+      {
+        "label": "ControlNet strength",
+        "node": "6",
+        "input": "strength",
+        "type": "float",
+        "min": 0,
+        "max": 2
+      },
+      {
+        "label": "ControlNet end",
+        "node": "6",
+        "input": "end_percent",
+        "type": "float",
+        "min": 0,
+        "max": 1
+      },
+      {
+        "label": "prompt +",
+        "node": "3",
+        "input": "text",
+        "type": "text"
+      },
+      {
+        "label": "prompt -",
+        "node": "4",
+        "input": "text",
+        "type": "text"
+      },
+      {
+        "label": "seed",
+        "node": "8",
+        "input": "seed",
+        "type": "int"
+      },
+      {
+        "label": "steps",
+        "node": "8",
+        "input": "steps",
+        "type": "int"
+      },
+      {
+        "label": "cfg",
+        "node": "8",
+        "input": "cfg",
+        "type": "float",
+        "min": 1,
+        "max": 12
+      },
+      {
+        "label": "checkpoint",
+        "node": "2",
+        "input": "ckpt_name",
+        "options": [
+          "epicrealismXL_vxviiCrystalclear.safetensors",
+          "cyberrealisticXL_v70.safetensors",
+          "sd_xl_base_1.0.safetensors"
+        ]
+      }
+    ]
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "example.png"
+    }
+  },
+  "2": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "epicrealismXL_vxviiCrystalclear.safetensors"
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "2",
+        1
+      ],
+      "text": "raw photograph of a narrow old european alley at night after rain, weathered irregular brick walls, uneven handmade bricks, crumbling mortar, damp stains, grime, moss in the cracks, water streaks on the walls, wet cobblestones with puddles, warm tungsten light from a shop window, deep natural shadows, shot on 35mm film, natural light falloff, subtle film grain, photorealistic, documentary photography"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "2",
+        1
+      ],
+      "text": "3d render, cgi, video game, unreal engine, octane render, plastic, clean uniform texture, repeating pattern, perfect bricks, oversaturated, hdr, overly sharp, illustration, painting, cartoon"
+    }
+  },
+  "5": {
+    "class_type": "ControlNetLoader",
+    "inputs": {
+      "control_net_name": "SBXL\\controlnet-tile-sdxl-1.0.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "4",
+        0
+      ],
+      "control_net": [
+        "5",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ],
+      "strength": 0.6,
+      "start_percent": 0.0,
+      "end_percent": 0.8
+    }
+  },
+  "7": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "2",
+        2
+      ]
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "6",
+        1
+      ],
+      "latent_image": [
+        "7",
+        0
+      ],
+      "seed": 123456,
+      "steps": 30,
+      "cfg": 4.5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.3
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "2",
+        2
+      ]
+    }
+  },
+  "10": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "9",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "data (as is)",
+      "precision": "float"
+    }
+  }
+}
