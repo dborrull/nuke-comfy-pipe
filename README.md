@@ -8,6 +8,7 @@ Send a plate → pick a workflow (depth, realism pass, your own…) → tweak it
 
 ## Features
 
+- **Bring your own workflow.** Any ComfyUI image workflow, with any model you have, runs from Nuke: export it as API JSON and drop it in the library folder. See [Your own workflows](#your-own-workflows).
 - **Workflow library with parameters.** Each workflow can carry a small metadata block; its parameters (denoise, prompt, seed, model…) show up as knobs in a *Parameters* tab.
 - **Colour round-trip.** The plate is sent through the active Viewer transform (OCIO display/view, or Nuke's own LUTs) and colour results come back through the inverse, so they line up with the original. A round-trip test workflow is included in `examples/`.
 - **Multi-input (3D → AI).** A workflow can ask for up to 3 extra images — depth, a second pass, AOVs — taken from a **layer of the plate** (multichannel EXR from Blender, Maya…), from the **aux input** or from the **mask input**. Data goes as float EXR and is normalised in ComfyUI (depth from Blender distance or Nuke 1/z → near = white for depth ControlNets); colour goes through the same viewer transform as the plate.
@@ -127,7 +128,15 @@ Prompting tips: for **SDXL inpaint** describe what *should* be there ("old brick
 
 ### Your own workflows
 
-Export from ComfyUI with **Workflow › Export (API)**. It needs a `LoadImage` and a `Save EXR (ComfyBridge)` (or `SaveImage`). Optionally add:
+**Bring your own workflow and your own models.** Any image workflow you build in ComfyUI, with any model you have installed, can run from Nuke:
+
+1. Build it in ComfyUI with a `LoadImage` (the plate goes there) and a `Save EXR (ComfyBridge)` (float EXR back) or `SaveImage` (8-bit PNG back).
+2. Export it with **Workflow › Export (API)** (the normal UI JSON won't load).
+3. Drop it in `comfy_bridge_workflows` and press **load / reload**.
+
+Without metadata it already works: the plate goes to the first `LoadImage`, the result comes from the first save node, and KSampler settings (seed, steps, cfg, sampler, scheduler, denoise) show up in *Parameters*. **One catch:** with no metadata the result is treated as *data* (like depth). For an image, set *result* to **color (image)** on the node, or add `"output": "color"` to the metadata.
+
+Add a `_comfy_bridge` block to name it, expose more knobs (prompt, model dropdowns from your ComfyUI…), and use masks or extra inputs:
 
 ```json
 "_comfy_bridge": {
@@ -153,7 +162,7 @@ Optional keys:
 | `"match_exposure": true` (in an input) | That input gets the same send exposure as the plate. |
 | `"inputs": [...]` | Extra images, up to 3: `{"node": "2", "label": "depth", "from": "plate", "layer": "depth", "mono": true, "send": "data"}`. `from`: `plate` / `aux` / `mask`. A `LoadImage` receives an 8-bit PNG; a **Load EXR (ComfyBridge)** receives a float EXR. |
 
-Drop it in `comfy_bridge_workflows` and press **load / reload**. More workflows (tools and experiments) are in [`examples/`](examples/README.md).
+Video workflows that process the whole shot at once (LTX, Wan) don't work yet: frames are sent one by one. More workflows (tools and experiments) are in [`examples/`](examples/README.md).
 
 ### ComfyUI nodes
 
