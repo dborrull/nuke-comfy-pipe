@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.2
+**Library: 9 workflows, all of them run on Comfy Cloud too.**
+- New, tested from Nuke on Comfy Cloud: **Relight** (Qwen Image Edit 2509 + Relight LoRA), **Edit with reference** (Qwen Image Edit 2511: material / object / style from the aux input), **Edit – FLUX 3 Image Klein** (distilled, Black Forest Labs, October 2026), **Inpaint – Qwen-Image InstantX** (mask: clean plates, remove / replace objects), **Outpaint** (Flux.1 Fill dev, returns a bigger frame), **Render to photo – Z-Image Turbo + ControlNet Union** (depth / pose / lines from aux, or canny from the plate).
+- **Upscale – SeedVR2** tested: moved from `examples/` to the library.
+- **Render to photo (Qwen-Image 2512)** now takes the depth as a grey image (PNG), so it runs on Cloud; the float-EXR-depth version and its FAST variant moved to `examples/`.
+- Moved to `examples/` (still in the repo): the SDXL workflows (inpaint, realism, light on VRAM for local use), Qwen-Image-Edit 2509 (mask) and Qwen Image 2.1 edit.
+- Download links and licences for the new models in `models_catalog.json` (*download missing models*), including model patches (`ModelPatchLoader`).
+
+**Node**
+- Fix: parameters were not sent when the workflow had a parameter driving two inputs (Nuke read the stored list as Tcl and choked on the brackets). Prompts with [brackets] are now sent as typed.
+- Fix: big seeds from Comfy templates no longer fail in Nuke's 32-bit Int knob (folded into range).
+- The mask input is scaled to the plate format: a Roto drawn on the source before a Reformat no longer lands in the wrong place.
+- *match input format* is set by every workflow on load (it stayed off after an outpaint / upscale workflow).
+- Workflows can declare `"send_exposure": false` (generative ones that relight or repaint): send exposure is reset to 0 for them.
+- The Script Editor shows each run and the parameter values sent.
+- ComfyBridge icon in the Nodes menu (`comfybridge.png`, copy it next to `comfy_bridge.py`).
+
+## 0.8.1
+- Credit in the node: *ComfyBridge v0.8.1 - by David Borrull* at the bottom of the panel, an **open repo** button, and author and repo in the quick help.
+- Licence and author header in every Python file (Nuke side and ComfyUI node). The ComfyUI node now reports the same version as the Nuke side.
+- **Linux preparation (not tested yet):** model file names saved on Windows (`Qwen\x.safetensors`) are matched by file name to what the server lists (`Qwen/x.safetensors`, or just `x.safetensors` on Comfy Cloud) before each run; settings fall back to `~/.nuke` when the install folder is read-only; the models-folder prompt suggests a Linux path on Linux.
+- README: how colour goes out and comes back (scene-linear), its limits in the highlights, *Tested on Windows, Linux not tested yet*.
+
 ## 0.8.0
 - **Comfy Cloud backend:** new *run on* selector (local ComfyUI / Comfy Cloud); the local address stays in *server* for when you switch back. Runs workflows on Comfy Cloud instead of a local ComfyUI (paid plan). The API key is read from `Documents/ComfyBridge/comfy_cloud_api_key.txt` or the `COMFY_API_KEY` variable, never from the Nuke script, and is not sent to the storage host when results are downloaded.
 - On Cloud, *ComfyBridge Save EXR* is swapped for the core *Save Image (Advanced)* in EXR (16/32-bit float), so results still come back as float EXR. Workflows that need other ComfyBridge nodes (Load EXR, crop/stitch for masks) are flagged "not for Cloud" when loaded.

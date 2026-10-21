@@ -1,0 +1,267 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "plate.png"
+    }
+  },
+  "2": {
+    "class_type": "ComfyBridgeLoadEXR",
+    "inputs": {
+      "image": "",
+      "mode": "depth: distance -> 1/z (disparity)",
+      "channels": "first channel (gray)"
+    }
+  },
+  "3": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "4": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "5": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "shift": 3.1
+    }
+  },
+  "9": {
+    "class_type": "ControlNetLoader",
+    "inputs": {
+      "control_net_name": "Qwen\\Qwen-Image-2512-Fun-Controlnet-Union-2602.safetensors"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "4",
+        0
+      ],
+      "text": "Real photograph shot on a full-frame camera, 35mm lens. Photoreal materials and textures with natural imperfections, realistic light and shadows, natural exposure. Describe your scene here: place, materials, time of day, light, mood."
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "4",
+        0
+      ],
+      "text": "低分辨率，低画质，画面过饱和，蜡像感，过度光滑，过度锐化，HDR效果，画面具有AI感，插画，卡通，3D渲染，CG，人物，行人"
+    }
+  },
+  "10": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "8",
+        0
+      ],
+      "control_net": [
+        "9",
+        0
+      ],
+      "image": [
+        "2",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ],
+      "strength": 0.8,
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "11": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "6",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "11",
+        0
+      ],
+      "seed": 202,
+      "steps": 40,
+      "cfg": 3.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.75
+    }
+  },
+  "13": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    }
+  },
+  "14": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "13",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "sRGB -> linear",
+      "precision": "half"
+    }
+  },
+  "_comfy_bridge": {
+    "name": "Render to photo - Qwen-Image 2512 + depth (3D)",
+    "description": "Turns a lit 3D render (plate) into a photoreal frame. The render's depth (Z layer of the plate, or the aux input) drives a depth ControlNet so the geometry stays put. Qwen-Image 2512, Apache 2.0.",
+    "output": "color",
+    "plate_node": "1",
+    "inputs": [
+      {
+        "node": "2",
+        "label": "depth",
+        "from": "plate",
+        "layer": "depth",
+        "mono": true
+      }
+    ],
+    "params": [
+      {
+        "label": "prompt",
+        "node": "7",
+        "input": "text",
+        "type": "text",
+        "tooltip": "Describe the scene as a photograph: place, materials, time of day, light. The depth keeps the layout."
+      },
+      {
+        "label": "negative",
+        "node": "8",
+        "input": "text",
+        "type": "text"
+      },
+      {
+        "label": "denoise",
+        "node": "12",
+        "input": "denoise",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "tooltip": "How far from the input it may go. 0.6 keeps your render's look, 0.9 reinvents textures (geometry stays thanks to depth)."
+      },
+      {
+        "label": "depth strength",
+        "node": "10",
+        "input": "strength",
+        "type": "float",
+        "min": 0,
+        "max": 1.5
+      },
+      {
+        "label": "depth end",
+        "node": "10",
+        "input": "end_percent",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "tooltip": "Stop following the depth earlier (0.7-0.8) to give the model freedom in the details."
+      },
+      {
+        "label": "depth mode",
+        "node": "2",
+        "input": "mode",
+        "options": [
+          "depth: distance -> 1/z (disparity)",
+          "depth: distance (normalize + invert)",
+          "depth: Nuke 1/z (normalize)"
+        ],
+        "tooltip": "Blender / Arnold / most renderers: 'distance'. Nuke ScanlineRender: 'Nuke 1/z'."
+      },
+      {
+        "label": "seed",
+        "node": "12",
+        "input": "seed",
+        "type": "int"
+      },
+      {
+        "label": "steps",
+        "node": "12",
+        "input": "steps",
+        "type": "int"
+      },
+      {
+        "label": "cfg",
+        "node": "12",
+        "input": "cfg",
+        "type": "float",
+        "min": 1,
+        "max": 8
+      },
+      {
+        "label": "model",
+        "node": "3",
+        "input": "unet_name",
+        "type": "string",
+        "tooltip": "File in models/diffusion_models (fp8, or a GGUF with the GGUF loader workflow)."
+      },
+      {
+        "label": "controlnet",
+        "node": "9",
+        "input": "control_net_name",
+        "type": "string",
+        "tooltip": "File in models/controlnet."
+      }
+    ]
+  }
+}

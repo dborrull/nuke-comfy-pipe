@@ -2,25 +2,42 @@
 
 **ComfyBridge** — run ComfyUI workflows on your plates from inside Nuke and get the result back as EXR, with the colour pipeline handled.
 
+*By David Borrull, VFX compositor.*
+
 Send a plate → pick a workflow (depth, realism pass, your own…) → tweak its parameters in Nuke → the result comes out of the node. No exporting, no browser, no 8-bit PNGs in your comp.
 
-> Status: **v0.8.0 — early, but working.** Tested on Windows, Nuke 17.1 (Non-commercial) and ComfyUI 0.38 portable with an 8 GB GPU. The Comfy Cloud backend is new and has had little real-world use yet.
+> Status: **v0.8.2 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
 
 ## Features
 
 - **Bring your own workflow.** Any ComfyUI image workflow, with any model you have, runs from Nuke: export it as API JSON and drop it in the library folder. See [Your own workflows](#your-own-workflows).
 - **Workflow library with parameters.** Each workflow can carry a small metadata block; its parameters (denoise, prompt, seed, model…) show up as knobs in a *Parameters* tab.
-- **Colour round-trip.** The plate is sent through the active Viewer transform (OCIO display/view, or Nuke's own LUTs) and colour results come back through the inverse, so they line up with the original. A round-trip test workflow is included in `examples/`.
+- **Colour round-trip.** The plate is sent through the active Viewer transform (OCIO display/view, or Nuke's own LUTs) and colour results come back through the inverse, **scene-linear**, so they line up with the original (see [Colour](#colour-what-goes-out-and-what-comes-back) for the limits in the highlights). A round-trip test workflow is included in `examples/`.
 - **Multi-input (3D → AI).** A workflow can ask for up to 3 extra images — depth, a second pass, AOVs — taken from a **layer of the plate** (multichannel EXR from Blender, Maya…), from the **aux input** or from the **mask input**. Data goes as float EXR and is normalised in ComfyUI (depth from Blender distance or Nuke 1/z → near = white for depth ControlNets); colour goes through the same viewer transform as the plate.
 - **Model dropdowns.** Model / LoRA / ControlNet parameters list what your ComfyUI actually has (read from `/object_info`); a file in another subfolder is found automatically, and missing ones are reported on load.
 - **Send exposure.** Brighten (or darken) what is sent, in stops — dark renders give the model nothing to work with. Colour results come back with the inverse, so the comp stays put.
-- **Masked inpainting and editing.** Connect a mask (or use the plate alpha); the masked area is cropped with context, processed at the model's resolution, stitched back and comped over the plate with a feathered mask — pixels outside the mask stay untouched.
+- **Masked inpainting.** Connect a mask (or use the plate alpha); it is grown, softened and scaled to the plate, sent with it, and the result is comped back over the plate with a feathered mask — pixels outside the mask stay untouched.
 - **Float EXR output.** A self-contained ComfyUI node (*Save EXR (ComfyBridge)*) writes float EXR with no extra dependencies. Data passes (depth) come back raw; images come back to linear.
 - **Versioned outputs.** Every run goes to a new `v001`, `v002`… folder — nothing is overwritten, so you can compare settings.
 - **Working size.** Optionally downscale before sending (multiples of 32) and scale back on return. Handy with limited VRAM.
 - **Clean node graph.** After each run a standalone Read (labelled with its version, plus inverse colour transform and Reformat if needed) is placed next to the node. Or turn that off and the result comes out of the ComfyBridge node itself.
 - **Local ComfyUI or Comfy Cloud.** A *run on* switch sends the work to your own ComfyUI (or one on your network) or to Comfy Cloud, for models that don't fit your GPU. See [Comfy Cloud](#comfy-cloud).
 - **Works within Nuke Non-commercial's Python limit** (10 Node objects per session): the node is pasted from a template and its internals are driven by expressions, so a run touches one node.
+
+## Colour: what goes out and what comes back
+
+Diffusion models are trained on display-referred 8-bit images (sRGB-like), not on scene-linear EXRs. ComfyBridge does the conversion both ways so you can stay in your linear comp:
+
+1. **Out:** the plate goes through the **active Viewer transform** (your OCIO display/view, or Nuke's own LUT) and is sent as an 8-bit PNG — the model sees what you see in the Viewer. With *input color* = *sRGB* it is sent as plain sRGB instead.
+2. **In ComfyUI:** the model works on that display image.
+3. **Back:** colour results are saved as EXR and run through the **inverse** of the same transform in Nuke, so they come back **scene-linear** in your working space and line up with the plate. Data results (depth, mattes, normals) come back raw, untouched.
+
+**Limits — mostly in the highlights:**
+
+- Anything the Viewer transform pushes above display white is **clipped** before the model sees it. The inverse cannot rebuild what was clipped: bright windows, lamps, the sun or specular hits come back flat. With filmic / ACES views the inverse also expands the top of the range a lot, so the brightest returned values can be far from the original.
+- **8 bits out** means some banding in smooth gradients after the inverse, most visible in skies and shadows.
+- **What helps:** lower *send exposure* (negative stops) to fit the highlights into the display range — it is undone on return. Comp the AI result only where you need it (mask, keymix) and keep the original plate's highlights. Treat the result as a layer to integrate, not as a replacement plate.
+- Check it on your own pipeline with *Test – colour round-trip* (in `examples/`).
 
 ## Models
 
@@ -30,12 +47,12 @@ The list of known models lives in `nuke/comfybridge/models_catalog.json`; add yo
 
 ## Install
 
-**ComfyUI**
+**ComfyUI** (local only — not needed if you only use Comfy Cloud)
 1. Copy `comfyui/ComfyUI-ComfyBridge` to `ComfyUI/custom_nodes/`.
 2. Restart ComfyUI.
 
 **Nuke**
-1. Copy `nuke/comfy_bridge.py`, the `nuke/comfybridge` folder and the `nuke/comfy_bridge_workflows` folder to your `~/.nuke`.
+1. Copy `nuke/comfy_bridge.py`, the icons `nuke/comfybridge.png` and `nuke/comfybridge@2x.png`, the `nuke/comfybridge` folder and the `nuke/comfy_bridge_workflows` folder to your `~/.nuke`.
 2. Add to `~/.nuke/menu.py`:
    ```python
    import comfy_bridge
@@ -70,7 +87,7 @@ Hover any knob for its help, or press **help** next to *test connection* for a q
 | comp feather | Feather of the comp mask. |
 | mask send | *alpha*, or *rgba (as is)* for colour-coded masks (e.g. red = regenerate, green = take another pass). |
 
-### Inputs tab (v0.6)
+### Inputs tab
 
 When a workflow needs extra images, they show up here. For each one:
 
@@ -88,15 +105,17 @@ Every extra input is resized to the plate (or the working size).
 
 | Workflow | Output | Needs | Comfy Cloud |
 |---|---|---|---|
-| Depth – Depth Anything V2 | float EXR, raw | [ComfyUI-DepthAnythingV2](https://github.com/kijai/ComfyUI-DepthAnythingV2) | yes |
-| Realism – SDXL img2img + Tile | half EXR, linear | an SDXL checkpoint (e.g. epiCRealism XL) + SDXL Tile ControlNet | yes (pick a checkpoint Cloud has) |
-| Inpaint – SDXL (mask) | half EXR, comped over plate | an SDXL checkpoint | no (crop/stitch nodes) |
-| Edit – Qwen-Image-Edit 2509 (mask) | half EXR, comped over plate | Qwen-Image-Edit 2509 (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Lightning 4-step LoRA, SAM3 | no (crop/stitch nodes) |
-| Render to photo – Qwen-Image 2512 + depth (3D) | half EXR, linear | Qwen-Image 2512 (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Qwen-Image 2512 Fun ControlNet | no (Load EXR) |
-| Render to photo – … FAST (Lightning 4 steps) | half EXR, linear | + Qwen-Image 2512 Lightning 4-step LoRA | no (Load EXR) |
-| Render to photo – … depth image (PNG) | half EXR, linear | same as Render to photo; depth as an 8-bit image (e.g. from Depth Anything) | yes |
+| Depth – Depth Anything V2 | float EXR, raw | [ComfyUI-DepthAnythingV2](https://github.com/kijai/ComfyUI-DepthAnythingV2) (downloads its model) | yes |
+| Render to photo – Qwen-Image 2512 + depth image (PNG) | half EXR, linear | Qwen-Image 2512 (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Qwen-Image 2512 Fun ControlNet. Depth as a grey image in **aux** (near = white, e.g. from Depth Anything or a normalised Blender Z) | yes |
+| Render to photo – Z-Image Turbo + ControlNet Union | half EXR, linear | Z-Image Turbo, Qwen3 4B text encoder, Flux VAE (`ae`), Z-Image-Turbo-Fun-Controlnet-Union (model_patches). Control image in **aux** (grey depth near = white, pose, lines) or canny of the plate. Fast (8 steps) | yes (tested) |
+| Relight – Qwen Image Edit 2509 | half EXR, linear | Qwen-Image-Edit 2509 (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Lightning 4-step LoRA, Relight LoRA. Describe the new light | yes (tested) |
+| Edit – FLUX 3 Image Klein (distilled) | half EXR, linear | FLUX 3 Image Klein int8, Qwen3-VL 4B text encoder, FLUX.2 VAE. Write the edit as `In <ref_image_0>, ...`. Check the FLUX 3 licence | yes (tested) |
+| Edit – Qwen Image Edit 2511 (plate + reference) | half EXR, linear | Qwen-Image-Edit 2511 (fp8mixed), Qwen 2.5 VL text encoder, Qwen-Image VAE, 2511 Lightning LoRA. Reference (material, object, style) in **aux** | yes (tested) |
+| Inpaint – Qwen-Image InstantX (mask) | half EXR, comped over plate | Qwen-Image (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Qwen-Image Lightning 4-step LoRA, InstantX Inpainting ControlNet | yes (tested) |
+| Outpaint – Flux.1 Fill | half EXR, **bigger than the plate** | FLUX.1 Fill dev, clip_l, t5xxl, Flux VAE (`ae`). Non-commercial licence | yes (tested) |
+| Upscale – SeedVR2 3B Int8 | half EXR, **bigger than the plate** (x2 default) | SeedVR2 3B int8 + SeedVR2 VAE (ComfyUI native nodes). Colour correction *lab* keeps the plate grade | yes (tested) |
 
-Tools (colour round-trip test, extra-input test) and untested or experimental workflows (SeedVR2 upscale, Qwen Image 2.1 edit, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
+Every workflow in the library also runs on Comfy Cloud. Tools (colour round-trip test, extra-input test) and alternative or experimental workflows (SDXL inpaint and realism, Qwen-Image-Edit 2509 with SAM3 mask, Qwen Image 2.1 edit, Render to photo from a float EXR depth (local, Load EXR) and its FAST variant, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
 
 ## Comfy Cloud
 
@@ -108,25 +127,26 @@ For models that don't fit your GPU, set **run on** to *Comfy Cloud*. You need a 
 - Model lists in *Parameters* come from Cloud. If a workflow names a model Cloud doesn't have, pick another one from the list.
 - Cancelling also removes the frames still queued on Cloud, so they are not charged.
 
-### From 3D: render → photo
+## From 3D: render → photo
 
-1. Render from Blender (or any DCC) a multichannel EXR with `rgba` and the Z pass (`depth`). In Nuke, Read it and plug it into ComfyBridge.
-2. Load **Render to photo – Qwen-Image 2512 + depth**. The Inputs tab shows *depth ← plate / depth*.
-3. *depth mode*: **distance** for Blender, Arnold and most renderers (Z = distance, sky = far); **Nuke 1/z** for ScanlineRender.
-4. Check the depth first with **Test – extra input**: near should be white, the sky black.
-5. *denoise* ~0.6 keeps the look of your render; ~0.9 reinvents the textures while the depth keeps the geometry.
+1. Render from Blender (or any DCC) the beauty and a depth pass. Make the depth a grey image in Nuke: **near = white, far / sky = black, 0–1** (Grade or Expression on the Z pass, or run **Depth – Depth Anything V2** on the render).
+2. Plug the render into the main input and the grey depth into **aux**.
+3. Load **Render to photo – Qwen-Image 2512 + depth image (PNG)** (or **Z-Image Turbo + ControlNet Union**, faster). The Inputs tab shows the depth coming from the aux input.
+4. *denoise* ~0.6 keeps the look of your render; ~0.9 reinvents the textures while the depth keeps the geometry.
 
-**Mix passes + inpaint** then combines two of those results with a colour mask (sent as RGBA): GREEN takes the aux pass, RED is regenerated following the depth — e.g. the walls.
+With a local ComfyUI and the ComfyBridge nodes installed, `examples/` has a version that reads the raw Z pass as float EXR (more depth precision, no 8-bit steps) and a FAST one; the **Mix passes + inpaint** example combines two results with a colour mask (GREEN takes the aux pass, RED is regenerated).
 
 > Qwen-Image 2512 is a 20B model. On 8 GB of VRAM the fp8 file runs with offloading (slow); for production point *server* to a bigger GPU on your network, or run it on Comfy Cloud. The model file names are parameters, so a GGUF or another quantisation is a knob change (with the matching loader).
 
-### Masks
+## Masks
 
-Masked workflows declare `"mask_node"` in their metadata. ComfyBridge renders the mask (grown and softened) as a second image, and the workflow uses **Crop To Mask (ComfyBridge)** → model → **Stitch (ComfyBridge)**: only the masked region plus some context is processed, at around 1024 px on its long edge (never enlarged more than `max_scale`), then pasted back into the full frame. Back in Nuke, the result is keymixed over the plate with the feathered mask.
+Masked workflows declare `"mask_node"` in their metadata. ComfyBridge renders the mask (from the mask input or the plate alpha, grown and softened, scaled to the plate format) as a second image. **Inpaint – Qwen-Image InstantX** works on the whole frame at its *work size*; back in Nuke the result is keymixed over the plate with the feathered mask.
 
-Prompting tips: for **SDXL inpaint** describe what *should* be there ("old brick wall"), not what to remove. For **Qwen-Image-Edit** write an instruction ("remove the cable and continue the wall").
+With a local ComfyUI, the ComfyBridge nodes **Crop To Mask** → model → **Stitch** process only the masked region plus some context at the model's resolution (used by the SDXL inpaint and Qwen-Image-Edit 2509 examples). They are not on Comfy Cloud.
 
-### Your own workflows
+Prompting tips: for **inpaint** describe what *should* be there ("old brick wall"), not what to remove. For the **Edit** workflows (Qwen-Image-Edit, FLUX 3 Klein) write an instruction ("remove the cable and continue the wall").
+
+## Your own workflows
 
 **Bring your own workflow and your own models.** Any image workflow you build in ComfyUI, with any model you have installed, can run from Nuke:
 
@@ -159,12 +179,14 @@ Optional keys:
 | `"mask_channels": "rgba"` | Send the mask as RGBA (default: alpha in all channels). |
 | `"plate_node": "1"` | LoadImage that receives the plate (default: the first LoadImage that is not the mask or an extra input). |
 | `"matte": true` | The result's alpha is a matte: output it as alpha. |
+| `"match_format": false` | Keep the result's own size (upscalers, outpaint). Default: scaled back to the plate format. |
+| `"send_exposure": false` | Generative workflow that does not keep the exposure it receives (relight, repaint): send exposure is reset to 0. |
 | `"match_exposure": true` (in an input) | That input gets the same send exposure as the plate. |
 | `"inputs": [...]` | Extra images, up to 3: `{"node": "2", "label": "depth", "from": "plate", "layer": "depth", "mono": true, "send": "data"}`. `from`: `plate` / `aux` / `mask`. A `LoadImage` receives an 8-bit PNG; a **Load EXR (ComfyBridge)** receives a float EXR. |
 
 Video workflows that process the whole shot at once (LTX, Wan) don't work yet: frames are sent one by one. More workflows (tools and experiments) are in [`examples/`](examples/README.md).
 
-### ComfyUI nodes
+## ComfyUI nodes
 
 | Node | What it does |
 |---|---|
@@ -178,9 +200,10 @@ Video workflows that process the whole shot at once (LTX, Wan) don't work yet: f
 The code is MIT. **The models are not covered by it.** Some common ones are non-commercial:
 
 - Depth Anything V2 **Large** — CC-BY-NC-4.0 (non-commercial). **Small** — Apache 2.0.
-- Qwen-Image / Qwen-Image 2512 / Qwen-Image-Edit — Apache 2.0. Check each ControlNet's own licence.
+- Qwen-Image / Qwen-Image 2512 / Qwen-Image-Edit and the Lightning LoRAs — Apache 2.0. Check each ControlNet's and LoRA's own licence (InstantX Inpainting, Relight LoRA).
 - SeedVR2 (ByteDance) — Apache 2.0.
-- FLUX.1 dev / Kontext dev and FLUX.2 [klein] 9B — non-commercial. FLUX.2 [klein] 4B — Apache 2.0.
+- Z-Image Turbo and its Fun ControlNet Union — Apache 2.0.
+- FLUX.1 dev / Fill dev / Kontext dev and FLUX.2 [klein] 9B — non-commercial. FLUX 3 Image Klein — check its licence on Hugging Face before commercial use. FLUX.2 [klein] 4B — Apache 2.0.
 - SDXL-based checkpoints — check each checkpoint's own licence.
 
 Check every model's licence before using results on paid work.
@@ -192,6 +215,16 @@ Check every model's licence before using results on paid work.
 - Nuke blocks while ComfyUI works (the progress bar can cancel).
 - Nuke Non-commercial caps output at HD and saves `.nknc` scripts.
 
+### Linux
+
+Not tested yet. The code avoids Windows-only paths and calls, and prepares a few things for it:
+
+- Model file names in workflows saved on Windows (`Qwen\model.safetensors`) are matched by file name to what your ComfyUI lists (`Qwen/model.safetensors`), so the same workflow works on both.
+- Settings are saved next to the install, or in `~/.nuke` if that folder is read-only (shared studio installs).
+- The Comfy Cloud key file is looked for in `~/Documents/ComfyBridge/` (or use `COMFY_API_KEY`).
+
+If you try it on Linux, an issue with what worked and what didn't is very welcome.
+
 ## Roadmap
 
 - OCIO input transform per input (colourspace, display/view, look, CDL/LUT file) and an ACEScct option.
@@ -199,6 +232,7 @@ Check every model's licence before using results on paid work.
 - Matte refinement (SDMatte / BiRefNet).
 - Video depth with temporal consistency (DepthCrafter), batches with overlap.
 - Sequence mode (one job for the whole frame range) for video models: object removal in video, LTX / Wan.
+- A mode without plate (text to image), e.g. 360° panoramas to light CG.
 - Background execution.
 
 ## Credits

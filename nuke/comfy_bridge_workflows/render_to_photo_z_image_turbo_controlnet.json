@@ -1,0 +1,283 @@
+{
+ "_comfy_bridge": {
+  "name": "Render to photo - Z-Image Turbo + ControlNet Union (depth / canny)",
+  "description": "Generates a new photo that follows a control image. Default: the aux input is the control - a grey depth (near = white, 0-1, e.g. Blender depth normalised or a Depth Anything result), a pose or a line drawing. 'edges from plate' on: canny edges of the plate instead (aux not needed). Very fast (8 steps). Apache 2.0 models: fine for commercial work.",
+  "source": "Adapted from Comfy-Org workflow_templates: image_z_image_turbo_fun_union_controlnet (MIT). See THIRD_PARTY_NOTICES.md.",
+  "output": "color",
+  "plate_node": "58",
+  "params": [
+   {
+    "label": "prompt",
+    "node": "45",
+    "input": "text",
+    "type": "text"
+   },
+   {
+    "label": "edges from plate",
+    "node": "71",
+    "input": "switch",
+    "type": "bool",
+    "tooltip": "Off (default): the aux input drives the image (depth, pose, lines). On: canny edges of the plate."
+   },
+   {
+    "label": "control strength",
+    "node": "60",
+    "input": "strength",
+    "type": "float",
+    "min": 0,
+    "max": 2
+   },
+   {
+    "label": "canny low",
+    "node": "57",
+    "input": "low_threshold",
+    "type": "float",
+    "min": 0.01,
+    "max": 0.99
+   },
+   {
+    "label": "canny high",
+    "node": "57",
+    "input": "high_threshold",
+    "type": "float",
+    "min": 0.01,
+    "max": 0.99
+   },
+   {
+    "label": "work size",
+    "node": "62",
+    "input": "largest_size",
+    "type": "int",
+    "tooltip": "Long edge the image is generated at (multiple of 16). The result is scaled back to the plate format.",
+    "also": [
+     [
+      "73",
+      "largest_size"
+     ]
+    ]
+   }
+  ],
+  "inputs": [
+   {
+    "node": "72",
+    "label": "control (depth grey near = white / pose / lines)",
+    "from": "aux",
+    "layer": "rgba",
+    "send": "data"
+   }
+  ],
+  "send_exposure": false
+ },
+ "58": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "plate.png"
+  }
+ },
+ "62": {
+  "class_type": "ImageScaleToMaxDimension",
+  "inputs": {
+   "image": [
+    "58",
+    0
+   ],
+   "upscale_method": "lanczos",
+   "largest_size": 1280
+  }
+ },
+ "57": {
+  "class_type": "Canny",
+  "inputs": {
+   "image": [
+    "62",
+    0
+   ],
+   "low_threshold": 0.1,
+   "high_threshold": 0.32
+  }
+ },
+ "71": {
+  "class_type": "ComfySwitchNode",
+  "inputs": {
+   "switch": false,
+   "on_false": [
+    "73",
+    0
+   ],
+   "on_true": [
+    "57",
+    0
+   ]
+  }
+ },
+ "46": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "z_image_turbo_bf16.safetensors",
+   "weight_dtype": "default"
+  }
+ },
+ "39": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "qwen_3_4b.safetensors",
+   "type": "lumina2",
+   "device": "default"
+  }
+ },
+ "40": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "ae.safetensors"
+  }
+ },
+ "64": {
+  "class_type": "ModelPatchLoader",
+  "inputs": {
+   "name": "Z-Image-Turbo-Fun-Controlnet-Union.safetensors"
+  }
+ },
+ "60": {
+  "class_type": "QwenImageDiffsynthControlnet",
+  "inputs": {
+   "model": [
+    "46",
+    0
+   ],
+   "model_patch": [
+    "64",
+    0
+   ],
+   "vae": [
+    "40",
+    0
+   ],
+   "image": [
+    "71",
+    0
+   ],
+   "strength": 1.0
+  }
+ },
+ "47": {
+  "class_type": "ModelSamplingAuraFlow",
+  "inputs": {
+   "model": [
+    "60",
+    0
+   ],
+   "shift": 3.0
+  }
+ },
+ "45": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "39",
+    0
+   ],
+   "text": "photo of toy cars on a notebook, macro lens, shallow depth of field, soft window light, film grain"
+  }
+ },
+ "42": {
+  "class_type": "ConditioningZeroOut",
+  "inputs": {
+   "conditioning": [
+    "45",
+    0
+   ]
+  }
+ },
+ "69": {
+  "class_type": "GetImageSize",
+  "inputs": {
+   "image": [
+    "71",
+    0
+   ]
+  }
+ },
+ "41": {
+  "class_type": "EmptySD3LatentImage",
+  "inputs": {
+   "width": [
+    "69",
+    0
+   ],
+   "height": [
+    "69",
+    1
+   ],
+   "batch_size": 1
+  }
+ },
+ "44": {
+  "class_type": "KSampler",
+  "inputs": {
+   "model": [
+    "47",
+    0
+   ],
+   "positive": [
+    "45",
+    0
+   ],
+   "negative": [
+    "42",
+    0
+   ],
+   "latent_image": [
+    "41",
+    0
+   ],
+   "seed": 729703840979498,
+   "steps": 8,
+   "cfg": 1.0,
+   "sampler_name": "res_multistep",
+   "scheduler": "simple",
+   "denoise": 1.0
+  }
+ },
+ "43": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "44",
+    0
+   ],
+   "vae": [
+    "40",
+    0
+   ]
+  }
+ },
+ "9": {
+  "class_type": "ComfyBridgeSaveEXR",
+  "inputs": {
+   "images": [
+    "43",
+    0
+   ],
+   "filename_prefix": "comfy_bridge",
+   "transfer": "sRGB -> linear",
+   "precision": "half"
+  }
+ },
+ "72": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "control.png"
+  }
+ },
+ "73": {
+  "class_type": "ImageScaleToMaxDimension",
+  "inputs": {
+   "image": [
+    "72",
+    0
+   ],
+   "upscale_method": "lanczos",
+   "largest_size": 1280
+  }
+ }
+}

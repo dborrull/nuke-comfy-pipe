@@ -10,8 +10,14 @@ Adapted for ComfyBridge (inputs, output node and parameter metadata changed):
 
 | Workflow in this repo | Original template |
 |---|---|
-| `examples/workflows/upscale_seedvr2_3b_int8.json` | `utility_seedvr2_3b_int8_upscale_image` |
+| `nuke/comfy_bridge_workflows/upscale_seedvr2_3b_int8.json` | `utility_seedvr2_3b_int8_upscale_image` |
+| `nuke/comfy_bridge_workflows/inpaint_qwen_image_instantx.json` | `image_qwen_image_instantx_inpainting_controlnet` |
+| `nuke/comfy_bridge_workflows/edit_flux3_klein_distilled.json` | `image_flux3_klein_distilled_image_edit` |
 | `examples/workflows/edit_qwen_image_2_1.json` | `image_qwen_image_2_1_image_edit` |
+| `nuke/comfy_bridge_workflows/relight_qwen_edit_2509.json` | `image_qwen_image_edit_2509_relight` |
+| `nuke/comfy_bridge_workflows/edit_qwen_image_edit_2511_reference.json` | `image_qwen_image_edit_2511` |
+| `nuke/comfy_bridge_workflows/outpaint_flux_fill.json` | `flux_fill_outpaint_example` |
+| `nuke/comfy_bridge_workflows/render_to_photo_z_image_turbo_controlnet.json` | `image_z_image_turbo_fun_union_controlnet` |
 
 Source: https://github.com/Comfy-Org/workflow_templates
 (distributed as the `comfyui-workflow-templates` package, licence: MIT)

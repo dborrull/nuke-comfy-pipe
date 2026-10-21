@@ -1,3 +1,6 @@
+# ComfyBridge (nuke-comfy-pipe) - by David Borrull
+# https://github.com/dborrull/nuke-comfy-pipe
+# MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Which model files a workflow needs, whether ComfyUI has them, and downloads
 (no Nuke dependency)."""
 
@@ -15,6 +18,7 @@ MODEL_INPUTS = {
     "unet_name": "diffusion_models", "ckpt_name": "checkpoints", "lora_name": "loras",
     "control_net_name": "controlnet", "clip_name": "text_encoders", "clip_name1": "text_encoders",
     "clip_name2": "text_encoders", "vae_name": "vae",
+    "name": "model_patches",   # ModelPatchLoader (only model file names count)
 }
 _MODEL_EXT = (".safetensors", ".gguf", ".ckpt", ".pt", ".pth", ".bin", ".sft")
 

@@ -1,3 +1,6 @@
+# ComfyBridge (nuke-comfy-pipe) - by David Borrull
+# https://github.com/dborrull/nuke-comfy-pipe
+# MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Nuke side. Every entry point receives the ComfyBridge node from its button
 (nuke.thisNode()) and never asks Python for any other Node object: internal
 nodes are reached through nuke.knob("Group.Node.knob") paths and expressions."""
@@ -13,7 +16,7 @@ except ImportError:  # lets the module be imported (and tested) outside Nuke
     nuke = None
 
 from .client import ComfyClient, ComfyError
-from .help import QUICK_HELP
+from .help import QUICK_HELP, REPO_URL
 from . import models as _models
 from .templates import bake_template, node_template
 from .workflows import (CB_SAVE_EXR, IN_VIEWER, LIB_NONE, LUT, MAX_SLOTS, OUT_AUTO, OUT_DATA,
@@ -21,7 +24,8 @@ from .workflows import (CB_SAVE_EXR, IN_VIEWER, LIB_NONE, LUT, MAX_SLOTS, OUT_AU
                         apply_server_options, build_prompt, cloud_unsupported,
                         cast_param, find_node, load_workflow, match_layer, next_version_dir,
                         ocio_names, output_images, param_specs, parse_viewer_process,
-                        pick_colorspace, scan_library, slot_specs, wait_for)
+                        pick_colorspace, resolve_model_files, scan_library, slot_specs,
+                        wait_for)
 
 
 def _log(msg):
@@ -30,6 +34,14 @@ def _log(msg):
 
 def show_help(node=None):
     nuke.message(QUICK_HELP)
+
+
+def open_repo(node=None):
+    import webbrowser
+    try:
+        webbrowser.open(REPO_URL)
+    except Exception as e:
+        nuke.message("ComfyBridge: open this page in your browser:\n%s\n(%s)" % (REPO_URL, e))
 
 
 def _paste(text, beside=None, positions=None):
@@ -201,8 +213,8 @@ def load_workflow_into(node, force=True):
     if out in ("data", "color"):
         desc += "<br><small>output: %s</small>" % out
     node["wf_desc"].setValue("<i>%s</i>" % desc if desc else " ")
-    if "match_format" in meta:  # e.g. upscalers keep their bigger size
-        node["match_format"].setValue(bool(meta["match_format"]))
+    # each workflow sets it: upscalers / outpaint keep their bigger size
+    node["match_format"].setValue(bool(meta.get("match_format", True)))
     specs = param_specs(wf, meta)
     client = ComfyClient(_server(node), timeout=5)
     _update_models_info(node, wf, meta, client)
@@ -233,22 +245,34 @@ _SETTINGS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
                          "comfy_bridge_settings.json")
 
 
+_USER_SETTINGS = os.path.join(os.path.expanduser("~"), ".nuke", "comfy_bridge_settings.json")
+
+
 def _settings():
-    try:
-        with open(_SETTINGS, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+    for p in (_SETTINGS, _USER_SETTINGS):
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            continue
+    return {}
 
 
 def _save_setting(key, value):
+    """Save next to the install; if that folder is read-only (a shared studio
+    install), save in the user's ~/.nuke instead."""
     s = _settings()
     s[key] = value
-    try:
-        with open(_SETTINGS, "w", encoding="utf-8") as f:
-            json.dump(s, f, indent=2)
-    except OSError as e:
-        _log("could not save settings: %s" % e)
+    for p in (_SETTINGS, _USER_SETTINGS):
+        try:
+            d = os.path.dirname(p)
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(s, f, indent=2)
+            return
+        except OSError as e:
+            _log("could not save settings to %s: %s" % (p, e))
 
 
 def _models_state(node, wf=None, meta=None, client=None):
@@ -302,7 +326,8 @@ def _models_dir():
     if d and os.path.isdir(d):
         return d
     d = nuke.getInput("ComfyUI models folder (the one that contains diffusion_models, vae, loras...):",
-                      d or "C:/ComfyUI/ComfyUI/models")
+                      d or ("C:/ComfyUI/ComfyUI/models" if os.name == "nt"
+                            else os.path.expanduser("~/ComfyUI/models")))
     if not d:
         return None
     d = d.strip().strip('"').replace("\\", "/")
@@ -495,15 +520,26 @@ def _rebuild_params(node, specs):
         [{k: s.get(k) for k in ("knob", "node", "input", "type", "also")} for s in specs]))
 
 
+def _raw(knob):
+    """Text of a string knob as typed. value() runs Tcl on [brackets], which
+    breaks JSON and prompts that contain brackets."""
+    try:
+        return knob.getText()
+    except Exception:
+        return knob.value()
+
+
 def _param_values(node):
     vals = {}
     try:
-        specs = json.loads(node["param_map"].value() or "[]")
+        specs = json.loads(_raw(node["param_map"]) or "[]")
     except ValueError:
+        _log("param_map is not readable: parameters not sent")
         specs = []
     for s in specs:
         if s["knob"] in node.knobs():
-            v = cast_param(s, node[s["knob"]].value())
+            k = node[s["knob"]]
+            v = cast_param(s, _raw(k) if s["type"] in ("text", "string") else k.value())
             for nid, inp in [(s["node"], s["input"])] + [tuple(a) for a in (s.get("also") or [])]:
                 vals[(nid, inp)] = v
     return vals
@@ -545,6 +581,8 @@ def run(node):
 
 
 def _run(node):
+    from . import __version__
+    _log("run v%s on %s" % (__version__, _server(node)))
     client = ComfyClient(_server(node))
     client.check()
 
@@ -555,6 +593,8 @@ def _run(node):
     wf, meta = load_workflow(path)
     if client.cloud and cloud_unsupported(wf):
         adapt_for_cloud(wf)   # raises with the list of nodes Cloud does not have
+    for m in resolve_model_files(wf, client.object_info):
+        _log("model not found on the server: " + m)
     slots = slot_specs(wf, meta)
     if slots and not _has_slots(node):
         raise ComfyError("This workflow needs extra inputs and this node was created with "
@@ -565,9 +605,16 @@ def _run(node):
                         ("LoadImage",), exclude=taken)
     save_id = find_node(wf, (node["save_id"].value() or "").strip(), SAVE_TYPES)
     params = _param_values(node)
+    for (nid, inp), val in sorted(params.items()):  # what is really sent (Script Editor)
+        _log("param %s.%s = %s" % (nid, inp, (str(val)[:80] + "...") if len(str(val)) > 80 else val))
     if mask_id and mask_id not in wf:
         raise ComfyError("The workflow metadata names mask node '%s', which does not exist." % mask_id)
 
+    if meta.get("send_exposure") is False and "send_exposure" in node.knobs() \
+            and float(node["send_exposure"].value()) != 0.0:
+        # generative workflows relight / repaint: they do not keep the exposure sent
+        node["send_exposure"].setValue(0.0)
+        _log("send exposure set to 0: this workflow does not keep the exposure it gets")
     out_type = node["out_type"].value()
     is_data = (meta.get("output", "data") == "data") if out_type == OUT_AUTO else out_type == OUT_DATA
 
@@ -743,7 +790,7 @@ def bake_read(node):
         nuke.message("ComfyBridge: there is no result yet. Press 'Send to ComfyUI' first.")
         return
     try:
-        st = json.loads(node["cs_state"].value() or "{}")
+        st = json.loads(_raw(node["cs_state"]) or "{}")
     except ValueError:
         st = {}
     fmt = None
@@ -771,5 +818,7 @@ def bake_read(node):
 
 
 def install_menu():
-    m = nuke.menu("Nodes").addMenu("ComfyUI")
-    m.addCommand("ComfyBridge", "import comfy_bridge; comfy_bridge.create_node()")
+    # comfybridge.png sits next to comfy_bridge.py (in the plugin path)
+    m = nuke.menu("Nodes").addMenu("ComfyUI", icon="comfybridge.png")
+    m.addCommand("ComfyBridge", "import comfy_bridge; comfy_bridge.create_node()",
+                 icon="comfybridge.png")

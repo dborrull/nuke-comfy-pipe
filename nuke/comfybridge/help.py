@@ -1,4 +1,11 @@
+# ComfyBridge (nuke-comfy-pipe) - by David Borrull
+# https://github.com/dborrull/nuke-comfy-pipe
+# MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Help texts: knob tooltips, parameter tooltips and the quick guide."""
+
+from . import __version__
+
+REPO_URL = "https://github.com/dborrull/nuke-comfy-pipe"
 
 PARAM_TIPS_LABEL = {
  "prompt": "What the image should be. Describe it as a photograph: place, materials, time of day, light, mood. The depth / mask keep the layout; the prompt decides the look.",
@@ -56,6 +63,7 @@ TIPS = {
  "server": "Address of your ComfyUI (host:port). It can be another machine on your network. Not used with Comfy Cloud, but kept for when you switch back. Default: env COMFY_BRIDGE_URL or 127.0.0.1:8188.",
  "test": "Check that ComfyUI answers: shows its version, GPU and VRAM. On Comfy Cloud it checks the API key and shows the account.",
  "help": "Quick guide to ComfyBridge.",
+ "repo": "Open the project page on GitHub: documentation, updates and issues.",
  "models_info": "Models this workflow needs, checked against your ComfyUI when you load it.",
  "dl_models": "Download the missing models straight into your ComfyUI models folder (asked once, remembered). Large files take a while; a stopped download resumes where it left off.",
  "library": "Workflows in the comfy_bridge_workflows folder. Pick one and press load / reload.",
@@ -91,7 +99,7 @@ for _n in range(1, 4):  # one entry per input slot
         TIPS["x%d_%s" % (_n, _k)] = _t
 
 
-QUICK_HELP = """ComfyBridge - quick guide
+QUICK_HELP = """ComfyBridge v%s - quick guide
 
 1. Plug the plate (input 1). Optional: mask input, aux input
    (a second image: style reference, another pass...).
@@ -112,4 +120,5 @@ Tips
   that use ComfyBridge nodes other than Save EXR stay local.
 - Hover any knob for its help.
 
-github.com/dborrull/nuke-comfy-pipe"""
+ComfyBridge by David Borrull - MIT licence
+github.com/dborrull/nuke-comfy-pipe""" % __version__

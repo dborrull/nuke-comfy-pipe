@@ -1,3 +1,6 @@
+# ComfyBridge (nuke-comfy-pipe) - by David Borrull
+# https://github.com/dborrull/nuke-comfy-pipe
+# MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Workflows, metadata and colour helpers (no Nuke dependency)."""
 
 import json
@@ -107,7 +110,8 @@ def param_specs(wf, meta):
         also = [[str(a[0]), a[1]] for a in (p.get("also") or [])
                 if str(a[0]) in wf and a[1] in wf[str(a[0])].get("inputs", {})]
         specs.append({"knob": "p_%d" % i, "label": p.get("label", inp), "node": nid,
-                      "input": inp, "type": typ, "default": p.get("default", cur),
+                      "input": inp, "type": typ,
+                      "default": fit_int(p.get("default", cur)) if typ == "int" else p.get("default", cur),
                       "min": p.get("min"), "max": p.get("max"),
                       "options": p.get("options"), "also": also,
                       "tooltip": p.get("tooltip") or default_param_tip(wf[nid].get("class_type"), inp, p.get("label", inp))})
@@ -147,6 +151,8 @@ def sampler_specs(wf, declared):
             if len(samplers) > 1:
                 label = "%s (%s)" % (label, nid)
             default = float(cur) if typ == "float" else int(cur) if typ == "int" else cur
+            if typ == "int":
+                default = fit_int(default)
             out.append({"knob": "p_k%s_%s" % (re.sub(r"\W", "_", nid), inp), "label": label,
                         "node": nid, "input": inp, "type": typ, "default": default,
                         "min": lo, "max": hi, "options": None, "also": [],
@@ -212,6 +218,48 @@ def apply_server_options(wf, specs, get_info):
             opts = [choice] + opts
         s["default"], s["options"] = choice, opts
     return missing
+
+
+_MODEL_EXT = (".safetensors", ".ckpt", ".pt", ".pth", ".bin", ".gguf", ".onnx", ".sft")
+
+
+def resolve_model_files(wf, get_info):
+    """Rewrite model file names to the spelling the server lists. Workflows saved on
+    Windows say 'Qwen\\x.safetensors'; Linux lists 'Qwen/x.safetensors' and Comfy
+    Cloud often just 'x.safetensors'. Matches by file name. Changes wf in place and
+    returns the 'node.input: value' entries the server does not have."""
+    cache, missing = {}, []
+    for nid, node in wf.items():
+        cls = node.get("class_type")
+        for inp, val in list(node.get("inputs", {}).items()):
+            if inp == "image" or not isinstance(val, str) or not val.lower().endswith(_MODEL_EXT):
+                continue
+            if cls not in cache:
+                try:
+                    cache[cls] = get_info(cls)
+                except Exception:
+                    cache[cls] = None
+            opts = combo_options(cache[cls], inp)
+            if not opts or val in opts:
+                continue
+            choice, found = resolve_choice(val, opts)
+            if found:
+                node["inputs"][inp] = choice
+            else:
+                missing.append("%s.%s: %s" % (nid, inp, val))
+    return missing
+
+
+INT_MAX = 2 ** 31 - 1
+
+
+def fit_int(value):
+    """Nuke Int knobs are 32-bit on Windows: big seeds from templates are folded in."""
+    try:
+        v = int(value)
+    except (TypeError, ValueError):
+        return value
+    return v % INT_MAX if abs(v) > INT_MAX else v
 
 
 def cast_param(spec, value):

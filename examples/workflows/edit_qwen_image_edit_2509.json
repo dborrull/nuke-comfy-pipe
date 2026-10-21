@@ -1,0 +1,355 @@
+{
+  "_comfy_bridge": {
+    "name": "Edit - Qwen-Image-Edit 2509 (mask)",
+    "description": "Edit the masked area with an instruction (add, remove, replace). The masked area is tinted red for the model: refer to it as 'the red area'. SAM3 mattes the object you name and it comes back as alpha (grade it in Nuke). Apache 2.0. Lightning LoRA: 4 steps, cfg 1.",
+    "output": "color",
+    "mask_node": "11",
+    "params": [
+      {
+        "label": "instruction",
+        "node": "3",
+        "input": "prompt",
+        "type": "text",
+        "tooltip": "Refer to the mask as 'the red area': 'In the red area, add an old bicycle...'. Ask it to remove the red tint."
+      },
+      {
+        "label": "mark strength",
+        "node": "16",
+        "input": "strength",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "tooltip": "How strongly the masked area is tinted red for the model (0 = no hint)."
+      },
+      {
+        "label": "matte object (SAM3)",
+        "node": "17",
+        "input": "prompt",
+        "type": "string",
+        "tooltip": "What to matte in the result for the alpha channel: 'bicycle', 'person', 'lamp'..."
+      },
+      {
+        "label": "matte confidence",
+        "node": "17",
+        "input": "confidence_threshold",
+        "type": "float",
+        "min": 0.05,
+        "max": 0.95
+      },
+      {
+        "label": "context padding (px)",
+        "node": "13",
+        "input": "padding",
+        "type": "int",
+        "tooltip": "Context around the mask, in plate pixels. More context = better match of texture scale and light."
+      },
+      {
+        "label": "crop size",
+        "node": "13",
+        "input": "target_size",
+        "type": "int"
+      },
+      {
+        "label": "max scale",
+        "node": "13",
+        "input": "max_scale",
+        "type": "float",
+        "min": 0,
+        "max": 4,
+        "tooltip": "How much a small masked area may be enlarged. Lower = texture keeps the plate's scale (1-1.5); higher = more detail but the model may draw things too big."
+      },
+      {
+        "label": "seed",
+        "node": "8",
+        "input": "seed",
+        "type": "int"
+      },
+      {
+        "label": "steps",
+        "node": "8",
+        "input": "steps",
+        "type": "int",
+        "tooltip": "4 with the Lightning LoRA."
+      },
+      {
+        "label": "Lightning LoRA strength",
+        "node": "21",
+        "input": "strength_model",
+        "type": "float",
+        "min": 0,
+        "max": 1.5
+      },
+      {
+        "label": "match color",
+        "node": "15",
+        "input": "match_color",
+        "options": [
+          "off",
+          "on"
+        ],
+        "tooltip": "Match level and colour of the generated area to the untouched plate around the mask."
+      },
+      {
+        "label": "match strength",
+        "node": "15",
+        "input": "match_strength",
+        "type": "float",
+        "min": 0,
+        "max": 1
+      }
+    ],
+    "matte": true
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "plate.png"
+    }
+  },
+  "11": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "mask.png"
+    }
+  },
+  "12": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "11",
+        0
+      ],
+      "channel": "red"
+    }
+  },
+  "13": {
+    "class_type": "ComfyBridgeCropToMask",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "mask": [
+        "12",
+        0
+      ],
+      "padding": 200,
+      "target_size": 1024,
+      "multiple": 16,
+      "max_scale": 1.5
+    }
+  },
+  "20": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "21": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "lora_name": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "22": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "shift": 3.0
+    }
+  },
+  "23": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image"
+    }
+  },
+  "24": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "3": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": [
+        "23",
+        0
+      ],
+      "prompt": "In the red area, add an old rusty bicycle leaning against the brick wall, matching the dim night light, with a soft contact shadow on the wet ground. Remove the red tint. Keep everything outside the red area unchanged.",
+      "vae": [
+        "24",
+        0
+      ],
+      "image1": [
+        "16",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": [
+        "23",
+        0
+      ],
+      "prompt": "",
+      "vae": [
+        "24",
+        0
+      ],
+      "image1": [
+        "16",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "13",
+        0
+      ],
+      "vae": [
+        "24",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "22",
+        0
+      ],
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "4",
+        0
+      ],
+      "latent_image": [
+        "14",
+        0
+      ],
+      "seed": 1234,
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "24",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "ComfyBridgeStitch",
+    "inputs": {
+      "original": [
+        "1",
+        0
+      ],
+      "crop": [
+        "9",
+        0
+      ],
+      "crop_info": [
+        "13",
+        2
+      ],
+      "matte": [
+        "17",
+        1
+      ],
+      "match_color": "off",
+      "match_strength": 1.0
+    }
+  },
+  "10": {
+    "class_type": "ComfyBridgeSaveEXR",
+    "inputs": {
+      "images": [
+        "15",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "transfer": "data (as is)",
+      "precision": "half"
+    }
+  },
+  "16": {
+    "class_type": "ComfyBridgeMarkMask",
+    "inputs": {
+      "image": [
+        "13",
+        0
+      ],
+      "mask": [
+        "13",
+        1
+      ],
+      "strength": 0.5,
+      "red": 1.0,
+      "green": 0.0,
+      "blue": 0.0
+    }
+  },
+  "14": {
+    "class_type": "SetLatentNoiseMask",
+    "inputs": {
+      "samples": [
+        "7",
+        0
+      ],
+      "mask": [
+        "13",
+        1
+      ]
+    }
+  },
+  "17": {
+    "class_type": "SAM3Segment",
+    "inputs": {
+      "image": [
+        "9",
+        0
+      ],
+      "prompt": "bicycle",
+      "output_mode": "Merged",
+      "confidence_threshold": 0.4,
+      "mask_blur": 0,
+      "mask_offset": 0,
+      "device": "Auto",
+      "invert_output": false,
+      "unload_model": true,
+      "background": "Alpha"
+    }
+  }
+}

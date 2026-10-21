@@ -1,0 +1,155 @@
+{
+ "_comfy_bridge": {
+  "name": "Edit - FLUX 3 Image Klein (distilled)",
+  "description": "Instruction edit with FLUX 3 Image Klein (Black Forest Labs, Oct 2026), distilled: 16 steps, no CFG. Call the plate <ref_image_0> and describe the change plus what stays. Works at ~1 MP (megapixels) and is scaled back to the plate format. Check the FLUX 3 licence before commercial use.",
+  "source": "Adapted from Comfy-Org workflow_templates: image_flux3_klein_distilled_image_edit (MIT). See THIRD_PARTY_NOTICES.md.",
+  "output": "color",
+  "plate_node": "11",
+  "send_exposure": false,
+  "params": [
+   {
+    "label": "instruction",
+    "node": "4",
+    "input": "text",
+    "type": "text",
+    "tooltip": "Write the edit as a full instruction: 'In <ref_image_0>, replace ... with ... Match the lighting and shadows. Keep everything else unchanged.'"
+   },
+   {
+    "label": "megapixels",
+    "node": "17",
+    "input": "resolution.megapixels",
+    "type": "float",
+    "min": 0.25,
+    "max": 4,
+    "tooltip": "Working size of the plate in megapixels (1 = ~1024x1024). More = more detail, slower."
+   },
+   {
+    "label": "model",
+    "node": "1",
+    "input": "unet_name",
+    "type": "string"
+   }
+  ]
+ },
+ "11": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "plate.png"
+  }
+ },
+ "1": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "flux3-image-klein-int8-convrot.safetensors",
+   "weight_dtype": "default"
+  }
+ },
+ "2": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "qwen3vl_4b_int8_convrot.safetensors",
+   "type": "flux3",
+   "device": "default"
+  }
+ },
+ "3": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "flux2-vae.safetensors"
+  }
+ },
+ "4": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "2",
+    0
+   ],
+   "text": "In <ref_image_0>, change the brick walls to weathered grey stone. Match the existing lighting, shadows and perspective. Keep all other parts of the image completely unchanged."
+  }
+ },
+ "32": {
+  "class_type": "ConditioningZeroOut",
+  "inputs": {
+   "conditioning": [
+    "4",
+    0
+   ]
+  }
+ },
+ "17": {
+  "class_type": "ReferenceMultiLatent",
+  "inputs": {
+   "positive": [
+    "4",
+    0
+   ],
+   "negative": [
+    "32",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ],
+   "images.image0": [
+    "11",
+    0
+   ],
+   "resolution": "resize",
+   "resolution.megapixels": 1.0
+  }
+ },
+ "7": {
+  "class_type": "KSampler",
+  "inputs": {
+   "model": [
+    "1",
+    0
+   ],
+   "positive": [
+    "17",
+    0
+   ],
+   "negative": [
+    "17",
+    1
+   ],
+   "latent_image": [
+    "17",
+    2
+   ],
+   "seed": 563228241,
+   "steps": 16,
+   "cfg": 1.0,
+   "sampler_name": "euler",
+   "scheduler": "simple",
+   "denoise": 1.0
+  }
+ },
+ "8": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "7",
+    0
+   ],
+   "vae": [
+    "3",
+    0
+   ]
+  }
+ },
+ "9": {
+  "class_type": "ComfyBridgeSaveEXR",
+  "inputs": {
+   "images": [
+    "8",
+    0
+   ],
+   "filename_prefix": "comfy_bridge",
+   "transfer": "sRGB -> linear",
+   "precision": "half"
+  }
+ }
+}

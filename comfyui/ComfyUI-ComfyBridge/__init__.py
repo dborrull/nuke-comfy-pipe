@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+# ComfyBridge (nuke-comfy-pipe) - by David Borrull
+# https://github.com/dborrull/nuke-comfy-pipe
+# MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """
 ComfyUI-ComfyBridge
 ===================
@@ -25,7 +28,7 @@ import numpy as np
 
 import folder_paths
 
-__version__ = "0.6.5"
+__version__ = "0.8.2"
 
 
 # Minimal OpenEXR writer

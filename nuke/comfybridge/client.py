@@ -1,3 +1,6 @@
+# ComfyBridge (nuke-comfy-pipe) - by David Borrull
+# https://github.com/dborrull/nuke-comfy-pipe
+# MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """HTTP client for the ComfyUI API (no Nuke dependency).
 
 Two backends with the same interface:

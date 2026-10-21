@@ -1,0 +1,224 @@
+{
+ "_comfy_bridge": {
+  "name": "Relight - Qwen Image Edit 2509 (Relight LoRA)",
+  "description": "Changes the lighting of the plate from a text description (time of day, key direction, colour temperature, softness) and keeps the content. Works at about 1 MP and is scaled back to the plate format. Lightning LoRA: 4 steps, cfg 1. Heavy locally (20 GB model): made for Comfy Cloud.",
+  "source": "Adapted from Comfy-Org workflow_templates: image_qwen_image_edit_2509_relight (MIT). See THIRD_PARTY_NOTICES.md.",
+  "output": "color",
+  "plate_node": "11",
+  "params": [
+   {
+    "label": "light",
+    "node": "14",
+    "input": "string_b",
+    "type": "text",
+    "tooltip": "Describe the new light: 'relight the image with hard late-afternoon sun from the left, warm, long shadows'. The LoRA trigger word is added for you."
+   },
+   {
+    "label": "relight strength",
+    "node": "118",
+    "input": "strength_model",
+    "type": "float",
+    "min": 0,
+    "max": 2,
+    "tooltip": "Weight of the Relight LoRA. Lower keeps more of the original light."
+   },
+   {
+    "label": "model",
+    "node": "37",
+    "input": "unet_name",
+    "type": "string"
+   }
+  ],
+  "send_exposure": false
+ },
+ "11": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "plate.png"
+  }
+ },
+ "37": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+   "weight_dtype": "default"
+  }
+ },
+ "89": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "model": [
+    "37",
+    0
+   ],
+   "lora_name": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+   "strength_model": 1.0
+  }
+ },
+ "118": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "model": [
+    "89",
+    0
+   ],
+   "lora_name": "Qwen-Image-Edit-2509-Relight.safetensors",
+   "strength_model": 1.0
+  }
+ },
+ "66": {
+  "class_type": "ModelSamplingAuraFlow",
+  "inputs": {
+   "model": [
+    "118",
+    0
+   ],
+   "shift": 3.0
+  }
+ },
+ "75": {
+  "class_type": "CFGNorm",
+  "inputs": {
+   "model": [
+    "66",
+    0
+   ],
+   "strength": 1.0
+  }
+ },
+ "38": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+   "type": "qwen_image",
+   "device": "default"
+  }
+ },
+ "39": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "qwen_image_vae.safetensors"
+  }
+ },
+ "117": {
+  "class_type": "FluxKontextImageScale",
+  "inputs": {
+   "image": [
+    "11",
+    0
+   ]
+  }
+ },
+ "14": {
+  "class_type": "StringConcatenate",
+  "inputs": {
+   "string_a": "重新照明,",
+   "string_b": "relight the image using twilight light (with a warm color temperature, soft light, and blurred shadows)",
+   "delimiter": ""
+  }
+ },
+ "111": {
+  "class_type": "TextEncodeQwenImageEditPlus",
+  "inputs": {
+   "clip": [
+    "38",
+    0
+   ],
+   "vae": [
+    "39",
+    0
+   ],
+   "image1": [
+    "117",
+    0
+   ],
+   "prompt": [
+    "14",
+    0
+   ]
+  }
+ },
+ "110": {
+  "class_type": "TextEncodeQwenImageEditPlus",
+  "inputs": {
+   "clip": [
+    "38",
+    0
+   ],
+   "vae": [
+    "39",
+    0
+   ],
+   "image1": [
+    "117",
+    0
+   ],
+   "prompt": ""
+  }
+ },
+ "88": {
+  "class_type": "VAEEncode",
+  "inputs": {
+   "pixels": [
+    "117",
+    0
+   ],
+   "vae": [
+    "39",
+    0
+   ]
+  }
+ },
+ "3": {
+  "class_type": "KSampler",
+  "inputs": {
+   "model": [
+    "75",
+    0
+   ],
+   "positive": [
+    "111",
+    0
+   ],
+   "negative": [
+    "110",
+    0
+   ],
+   "latent_image": [
+    "88",
+    0
+   ],
+   "seed": 1118877715456453,
+   "steps": 4,
+   "cfg": 1.0,
+   "sampler_name": "euler",
+   "scheduler": "simple",
+   "denoise": 1.0
+  }
+ },
+ "8": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "3",
+    0
+   ],
+   "vae": [
+    "39",
+    0
+   ]
+  }
+ },
+ "12": {
+  "class_type": "ComfyBridgeSaveEXR",
+  "inputs": {
+   "images": [
+    "8",
+    0
+   ],
+   "filename_prefix": "comfy_bridge",
+   "transfer": "sRGB -> linear",
+   "precision": "half"
+  }
+ }
+}

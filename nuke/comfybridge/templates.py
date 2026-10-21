@@ -1,3 +1,6 @@
+# ComfyBridge (nuke-comfy-pipe) - by David Borrull
+# https://github.com/dborrull/nuke-comfy-pipe
+# MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """.nk templates: pasting them creates nodes without Python Node objects
 (Nuke Non-commercial lets Python touch only 10 per session)."""
 
@@ -183,7 +186,8 @@ Group {
  show_result false
  addUserKnob {26 res_info l "" -STARTLINE T " "}
  addUserKnob {22 bake l "bake Read" +STARTLINE T %(py_bake)s}
- addUserKnob {26 ver l "" +STARTLINE T "<small>ComfyBridge v%(version)s</small>"}
+ addUserKnob {26 ver l "" +STARTLINE T "<small>ComfyBridge v%(version)s  -  by David Borrull  -  github.com/dborrull/nuke-comfy-pipe</small>"}
+ addUserKnob {22 repo l "open repo" -STARTLINE T %(py_repo)s}
  addUserKnob {20 inputs_tab l Inputs}
  addUserKnob {26 inputs_info l "" +STARTLINE T "<i>Extra images for the workflow (depth, a second pass, AOVs).<br>Take them from a layer of the plate, the aux input or the mask input.</i>"}
 %(slot_knobs)s
@@ -257,6 +261,18 @@ set N_in [stack 0]
   number 1
   xpos 400
   ypos -400
+ }
+set N_maskraw [stack 0]
+ Reformat {
+  type "to box"
+  box_width {{Input1.width}}
+  box_height {{Input1.height}}
+  box_fixed true
+  resize fit
+  filter Cubic
+  name CB_MaskFit
+  xpos 400
+  ypos -375
  }
 set N_maskin [stack 0]
 push $N_in
@@ -406,7 +422,7 @@ end_group
 """ % {
         "server": _nk_quote(server), "lib": lib, "W": W, "H": H, "version": __version__,
         "py_test": _py("test_connection"), "py_load": _py("load_workflow_into"),
-        "py_run": _py("run"), "py_changed": _nk_quote("import comfy_bridge; comfy_bridge.knob_changed(nuke.thisNode(), nuke.thisKnob())"), "py_bake": _py("bake_read"), "py_help": _py("show_help"), "py_models": _py("download_models"),
+        "py_run": _py("run"), "py_repo": _py("open_repo"), "py_changed": _nk_quote("import comfy_bridge; comfy_bridge.knob_changed(nuke.thisNode(), nuke.thisKnob())"), "py_bake": _py("bake_read"), "py_help": _py("show_help"), "py_models": _py("download_models"),
         "in_viewer": _nk_quote(IN_VIEWER), "in_srgb": _nk_quote(IN_SRGB),
         "out_auto": _nk_quote(OUT_AUTO), "out_data": _nk_quote(OUT_DATA),
         "out_color": _nk_quote(OUT_COLOR),
