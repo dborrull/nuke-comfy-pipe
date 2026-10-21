@@ -3,6 +3,7 @@ __pycache__/
 *.exr
 *.png
 !docs/**/*.png
+!nuke/comfybridge*.png
 comfy_bridge/
 .DS_Store
 Thumbs.db
