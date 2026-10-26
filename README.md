@@ -6,7 +6,7 @@
 
 Send a plate → pick a workflow (depth, realism pass, your own…) → tweak its parameters in Nuke → the result comes out of the node. No exporting, no browser, no 8-bit PNGs in your comp.
 
-> Status: **v0.8.2 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
+> Status: **v0.8.3 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
 
 ## Features
 
@@ -106,6 +106,8 @@ Every extra input is resized to the plate (or the working size).
 | Workflow | Output | Needs | Comfy Cloud |
 |---|---|---|---|
 | Depth – Depth Anything V2 | float EXR, raw | [ComfyUI-DepthAnythingV2](https://github.com/kijai/ComfyUI-DepthAnythingV2) (downloads its model) | yes |
+| Depth – Depth Anything 3 | float EXR, raw | ComfyUI core nodes (no custom node). Models in `models/geometry_estimation` (mono large, base, small) | yes (tested) |
+| Depth – MoGe 2 (depth / normals) | float EXR, raw | ComfyUI core nodes. `moge_2_vitl_normal_fp16` in `models/geometry_estimation`. Best single-frame geometry; depth 0–1 near = white, or normals | yes (tested) |
 | Render to photo – Qwen-Image 2512 + depth image (PNG) | half EXR, linear | Qwen-Image 2512 (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Qwen-Image 2512 Fun ControlNet. Depth as a grey image in **aux** (near = white, e.g. from Depth Anything or a normalised Blender Z) | yes |
 | Render to photo – Z-Image Turbo + ControlNet Union | half EXR, linear | Z-Image Turbo, Qwen3 4B text encoder, Flux VAE (`ae`), Z-Image-Turbo-Fun-Controlnet-Union (model_patches). Control image in **aux** (grey depth near = white, pose, lines) or canny of the plate. Fast (8 steps) | yes (tested) |
 | Relight – Qwen Image Edit 2509 | half EXR, linear | Qwen-Image-Edit 2509 (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Lightning 4-step LoRA, Relight LoRA. Describe the new light | yes (tested) |
@@ -129,7 +131,7 @@ For models that don't fit your GPU, set **run on** to *Comfy Cloud*. You need a 
 
 ## From 3D: render → photo
 
-1. Render from Blender (or any DCC) the beauty and a depth pass. Make the depth a grey image in Nuke: **near = white, far / sky = black, 0–1** (Grade or Expression on the Z pass, or run **Depth – Depth Anything V2** on the render).
+1. Render from Blender (or any DCC) the beauty and a depth pass. Make the depth a grey image in Nuke: **near = white, far / sky = black, 0–1** (Grade or Expression on the Z pass, or run **Depth – MoGe 2** or **Depth – Depth Anything 3** on the render).
 2. Plug the render into the main input and the grey depth into **aux**.
 3. Load **Render to photo – Qwen-Image 2512 + depth image (PNG)** (or **Z-Image Turbo + ControlNet Union**, faster). The Inputs tab shows the depth coming from the aux input.
 4. *denoise* ~0.6 keeps the look of your render; ~0.9 reinvents the textures while the depth keeps the geometry.
@@ -200,6 +202,8 @@ Video workflows that process the whole shot at once (LTX, Wan) don't work yet: f
 The code is MIT. **The models are not covered by it.** Some common ones are non-commercial:
 
 - Depth Anything V2 **Large** — CC-BY-NC-4.0 (non-commercial). **Small** — Apache 2.0.
+- Depth Anything 3 **Small, Base, Mono Large, Metric Large** — Apache 2.0. **Large, Giant, Nested** — CC BY-NC (non-commercial).
+- MoGe 2 — MIT.
 - Qwen-Image / Qwen-Image 2512 / Qwen-Image-Edit and the Lightning LoRAs — Apache 2.0. Check each ControlNet's and LoRA's own licence (InstantX Inpainting, Relight LoRA).
 - SeedVR2 (ByteDance) — Apache 2.0.
 - Z-Image Turbo and its Fun ControlNet Union — Apache 2.0.

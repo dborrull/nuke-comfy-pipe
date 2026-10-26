@@ -1,0 +1,102 @@
+{
+ "_comfy_bridge": {
+  "name": "Depth - Depth Anything 3",
+  "description": "Depth Anything 3 (ComfyUI core nodes, local and Comfy Cloud). Relative depth, near = white, ready for the aux of Render to photo or ZDefocus (math 'far = 0'). Sharp edges; flat surfaces can wobble a little (for single frames MoGe 2 is usually better). Sky clip pushes the sky to far. Use the Apache 2.0 models (mono large, base, small) for paid work.",
+  "output": "data",
+  "plate_node": "1",
+  "params": [
+   {
+    "label": "model",
+    "node": "2",
+    "input": "model_name",
+    "options": [
+     "depth_anything_3_mono_large.safetensors",
+     "depth_anything_3_base.safetensors",
+     "depth_anything_3_small.safetensors",
+     "depth_anything_3_metric_large.safetensors"
+    ],
+    "tooltip": "mono large: best relative depth. base / small: lighter. All four are Apache 2.0. metric large does not give reliable metres from a single frame."
+   },
+   {
+    "label": "resolution",
+    "node": "3",
+    "input": "resolution",
+    "type": "int",
+    "min": 140,
+    "max": 2520,
+    "tooltip": "Processing size (multiple of 14). 1008 is a good balance; higher = finer edges, slower."
+   },
+   {
+    "label": "normalization",
+    "node": "4",
+    "input": "output.normalization",
+    "options": [
+     "v2_style",
+     "min_max",
+     "raw"
+    ],
+    "tooltip": "v2_style: near = white, like Depth Anything V2. min_max: stretched 0-1. raw: the model's own values (not reliable metres from one frame)."
+   },
+   {
+    "label": "sky clip",
+    "node": "4",
+    "input": "output.apply_sky_clip",
+    "type": "bool",
+    "tooltip": "Detect the sky and push it to the far value."
+   }
+  ]
+ },
+ "1": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "plate.png"
+  }
+ },
+ "2": {
+  "class_type": "LoadDA3Model",
+  "inputs": {
+   "model_name": "depth_anything_3_mono_large.safetensors",
+   "weight_dtype": "default"
+  }
+ },
+ "3": {
+  "class_type": "DA3Inference",
+  "inputs": {
+   "da3_model": [
+    "2",
+    0
+   ],
+   "image": [
+    "1",
+    0
+   ],
+   "resolution": 1008,
+   "resize_method": "upper_bound_resize",
+   "mode": "mono"
+  }
+ },
+ "4": {
+  "class_type": "DA3Render",
+  "inputs": {
+   "da3_geometry": [
+    "3",
+    0
+   ],
+   "output": "depth",
+   "output.normalization": "v2_style",
+   "output.apply_sky_clip": true
+  }
+ },
+ "5": {
+  "class_type": "ComfyBridgeSaveEXR",
+  "inputs": {
+   "images": [
+    "4",
+    0
+   ],
+   "filename_prefix": "comfy_bridge",
+   "transfer": "data (as is)",
+   "precision": "float"
+  }
+ }
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3
+**Library: 11 workflows, all of them run on Comfy Cloud too.**
+- **Depth – Depth Anything 3** (ComfyUI core nodes, no custom node; local and Comfy Cloud): relative depth (near = white) with sharp edges, optional sky clip. Defaults to the Apache 2.0 models.
+- **Depth – MoGe 2** (ComfyUI core nodes, local and Comfy Cloud, MIT): the best single-frame geometry. Depth 0-1 (near = white) or normal maps; optional known horizontal FOV.
+- Their models (`models/geometry_estimation`) are in `models_catalog.json` with their licences, and are checked on load like the others.
+
 ## 0.8.2
 **Library: 9 workflows, all of them run on Comfy Cloud too.**
 - New, tested from Nuke on Comfy Cloud: **Relight** (Qwen Image Edit 2509 + Relight LoRA), **Edit with reference** (Qwen Image Edit 2511: material / object / style from the aux input), **Edit – FLUX 3 Image Klein** (distilled, Black Forest Labs, October 2026), **Inpaint – Qwen-Image InstantX** (mask: clean plates, remove / replace objects), **Outpaint** (Flux.1 Fill dev, returns a bigger frame), **Render to photo – Z-Image Turbo + ControlNet Union** (depth / pose / lines from aux, or canny from the plate).

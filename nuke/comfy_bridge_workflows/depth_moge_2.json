@@ -1,0 +1,93 @@
+{
+ "_comfy_bridge": {
+  "name": "Depth - MoGe 2 (depth / normals)",
+  "description": "MoGe 2 (ComfyUI core nodes, local and Comfy Cloud, MIT licence). Best single-frame geometry: depth comes back 0-1, near = white (ready for the aux of Render to photo, ZDefocus math 'far = 0'), or a normal map. Set the plate's horizontal FOV if you know it; 0 = estimated.",
+  "output": "data",
+  "plate_node": "1",
+  "params": [
+   {
+    "label": "output",
+    "node": "4",
+    "input": "output",
+    "options": [
+     "depth",
+     "normal_opengl",
+     "normal_directx",
+     "mask"
+    ],
+    "tooltip": "depth: 0-1, near = white. normal_opengl: green = up (Nuke Relight, Blender). mask: valid pixels (sky = black)."
+   },
+   {
+    "label": "detail",
+    "node": "3",
+    "input": "resolution_level",
+    "type": "int",
+    "min": 0,
+    "max": 9,
+    "tooltip": "0 = fastest, 9 = most detail."
+   },
+   {
+    "label": "horizontal FOV",
+    "node": "3",
+    "input": "fov_x_degrees",
+    "type": "float",
+    "min": 0,
+    "max": 170,
+    "tooltip": "Horizontal field of view of the plate camera in degrees (0 = let MoGe estimate it). 35 mm lens on full frame = 54.4."
+   }
+  ]
+ },
+ "1": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "plate.png"
+  }
+ },
+ "2": {
+  "class_type": "LoadMoGeModel",
+  "inputs": {
+   "model_name": "moge_2_vitl_normal_fp16.safetensors"
+  }
+ },
+ "3": {
+  "class_type": "MoGeInference",
+  "inputs": {
+   "moge_model": [
+    "2",
+    0
+   ],
+   "image": [
+    "1",
+    0
+   ],
+   "resolution_level": 9,
+   "fov_x_degrees": 0.0,
+   "batch_size": 1,
+   "force_projection": true,
+   "apply_mask": false,
+   "refine_steps": 0
+  }
+ },
+ "4": {
+  "class_type": "MoGeRender",
+  "inputs": {
+   "moge_geometry": [
+    "3",
+    0
+   ],
+   "output": "depth"
+  }
+ },
+ "5": {
+  "class_type": "ComfyBridgeSaveEXR",
+  "inputs": {
+   "images": [
+    "4",
+    0
+   ],
+   "filename_prefix": "comfy_bridge",
+   "transfer": "data (as is)",
+   "precision": "float"
+  }
+ }
+}

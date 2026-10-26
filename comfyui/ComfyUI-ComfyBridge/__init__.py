@@ -28,7 +28,7 @@ import numpy as np
 
 import folder_paths
 
-__version__ = "0.8.2"
+__version__ = "0.8.3"
 
 
 # Minimal OpenEXR writer

@@ -154,5 +154,30 @@
   "folder": "model_patches",
   "url": "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
   "licence": "Apache 2.0"
+ },
+ "depth_anything_3_mono_large.safetensors": {
+  "folder": "geometry_estimation",
+  "page": "https://huggingface.co/Comfy-Org",
+  "licence": "Apache 2.0"
+ },
+ "depth_anything_3_base.safetensors": {
+  "folder": "geometry_estimation",
+  "page": "https://huggingface.co/Comfy-Org",
+  "licence": "Apache 2.0"
+ },
+ "depth_anything_3_small.safetensors": {
+  "folder": "geometry_estimation",
+  "page": "https://huggingface.co/Comfy-Org",
+  "licence": "Apache 2.0"
+ },
+ "depth_anything_3_metric_large.safetensors": {
+  "folder": "geometry_estimation",
+  "page": "https://huggingface.co/Comfy-Org",
+  "licence": "Apache 2.0"
+ },
+ "moge_2_vitl_normal_fp16.safetensors": {
+  "folder": "geometry_estimation",
+  "page": "https://huggingface.co/Comfy-Org",
+  "licence": "MIT"
  }
 }

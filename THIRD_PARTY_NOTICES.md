@@ -46,6 +46,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+The **Depth – Depth Anything 3** and **Depth – MoGe 2** workflows are built from ComfyUI core nodes, not from a template.
+
 ## Ideas and approaches
 
 - **nuke-comfyui-bridge** by Mario Falco (MIT): display/view colour round-trip and

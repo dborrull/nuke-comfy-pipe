@@ -19,6 +19,7 @@ MODEL_INPUTS = {
     "control_net_name": "controlnet", "clip_name": "text_encoders", "clip_name1": "text_encoders",
     "clip_name2": "text_encoders", "vae_name": "vae",
     "name": "model_patches",   # ModelPatchLoader (only model file names count)
+    "model_name": "geometry_estimation",   # LoadDA3Model / LoadMoGeModel (catalog wins)
 }
 _MODEL_EXT = (".safetensors", ".gguf", ".ckpt", ".pt", ".pth", ".bin", ".sft")
 
