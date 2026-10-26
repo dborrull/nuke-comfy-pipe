@@ -4,7 +4,7 @@
 
 *By David Borrull, VFX compositor. Repository: `nuke-comfy-pipe`.*
 
-![ComfyBridge in Nuke: one shot taken from a Blender blockout to four different looks, each a ComfyBridge node with its result read back as EXR](docs/comfybridge_nuke.jpg)
+![ComfyBridge in Nuke: the node panel on the right, and in the viewer a wipe between two versions of the same shot generated from it](docs/comfybridge_nuke.jpg)
 
 Send a plate → pick a workflow (depth, realism pass, your own…) → tweak its parameters in Nuke → the result comes out of the node. No exporting, no browser, no 8-bit PNGs in your comp.
 
