@@ -20,6 +20,7 @@ Send a plate → pick a workflow (depth, realism pass, your own…) → tweak it
 - **Send exposure.** Brighten (or darken) what is sent, in stops — dark renders give the model nothing to work with. Colour results come back with the inverse, so the comp stays put.
 - **Masked inpainting.** Connect a mask (or use the plate alpha); it is grown, softened and scaled to the plate, sent with it, and the result is comped back over the plate with a feathered mask — pixels outside the mask stay untouched.
 - **Float EXR output.** A self-contained ComfyUI node (*Save EXR (ComfyBridge)*) writes float EXR with no extra dependencies. Data passes (depth) come back raw; images come back to linear.
+- **Sequence mode.** Send the whole frame range as **one ComfyUI job** (a batch of images) instead of one job per frame: needed by temporal / video models (SeedVR2 flickers about 40 % less this way), and faster on Comfy Cloud (RTX upscale: ~65 s instead of ~150 s for 10 frames). Batch workflows can be split in chunks; results keep the original frame numbers. See [Sequence mode](#sequence-mode).
 - **Versioned outputs.** Every run goes to a new `v001`, `v002`… folder — nothing is overwritten, so you can compare settings.
 - **Working size.** Optionally downscale before sending (multiples of 32) and scale back on return. Handy with limited VRAM.
 - **Clean node graph.** After each run a standalone Read (labelled with its version, plus inverse colour transform and Reformat if needed) is placed next to the node. Or turn that off and the result comes out of the ComfyBridge node itself.
@@ -69,7 +70,7 @@ Set `COMFY_BRIDGE_URL` to point at a ComfyUI on another machine, and `COMFY_BRID
 1. Select your plate and create a **ComfyBridge**.
 2. **test connection**.
 3. Pick a workflow in **library** → **load / reload**. Adjust it in the **Parameters** tab.
-4. Set the frame range → **Send to ComfyUI**.
+4. Set the frame range (and **mode**: *frames* or *sequence*) → **Send to ComfyUI**.
 5. A Read with the result (labelled v001, v002…) appears next to the node. With *create Read after each run* off, the node outputs the result itself (*show result in this node*).
 
 Hover any knob for its help, or press **help** next to *test connection* for a quick guide.
@@ -77,6 +78,8 @@ Hover any knob for its help, or press **help** next to *test connection* for a q
 | Knob | What it does |
 |---|---|
 | run on | *local ComfyUI* (the *server* address) or *Comfy Cloud*. |
+| mode | *frames*: one job per frame (any workflow). *sequence*: the whole range in one job. See [Sequence mode](#sequence-mode). |
+| chunk size | Sequence mode, batch workflows: frames per job (0 = whole range). |
 | send exposure (stops) | Exposure applied before sending (plate and inputs marked `match_exposure`); undone on colour results. |
 | input color | *viewer transform*: send what you see in the Viewer, undo it on return. *sRGB*: always sRGB. |
 | result | *auto* uses the workflow's metadata; force *data* (raw) or *color* (back to linear). |
@@ -117,9 +120,24 @@ Every extra input is resized to the plate (or the working size).
 | Edit – Qwen Image Edit 2511 (plate + reference) | half EXR, linear | Qwen-Image-Edit 2511 (fp8mixed), Qwen 2.5 VL text encoder, Qwen-Image VAE, 2511 Lightning LoRA. Reference (material, object, style) in **aux** | yes (tested) |
 | Inpaint – Qwen-Image InstantX (mask) | half EXR, comped over plate | Qwen-Image (fp8), Qwen 2.5 VL text encoder, Qwen-Image VAE, Qwen-Image Lightning 4-step LoRA, InstantX Inpainting ControlNet | yes (tested) |
 | Outpaint – Flux.1 Fill | half EXR, **bigger than the plate** | FLUX.1 Fill dev, clip_l, t5xxl, Flux VAE (`ae`). Non-commercial licence | yes (tested) |
-| Upscale – SeedVR2 3B Int8 | half EXR, **bigger than the plate** (x2 default) | SeedVR2 3B int8 + SeedVR2 VAE (ComfyUI native nodes). Colour correction *lab* keeps the plate grade | yes (tested) |
+| Upscale – SeedVR2 3B Int8 | half EXR, **bigger than the plate** (x2 default) | SeedVR2 3B int8 + SeedVR2 VAE (ComfyUI native nodes). Colour correction *lab* keeps the plate grade. Use **sequence** mode on shots: less flicker | yes (tested) |
+| Upscale – RTX Video Super Resolution | half EXR, **bigger than the plate** (x2 default) | NVIDIA RTX nodes (`comfyui_nvidia_rtx_nodes`). Fast x1–x4 upscale, or denoise / deblur at the same size. Check the NVIDIA Video Effects SDK licence | **Cloud only** (tested) |
 
-Every workflow in the library also runs on Comfy Cloud. Tools (colour round-trip test, extra-input test) and alternative or experimental workflows (SDXL inpaint and realism, Qwen-Image-Edit 2509 with SAM3 mask, Qwen Image 2.1 edit, Render to photo from a float EXR depth (local, Load EXR) and its FAST variant, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
+Every workflow in the library runs on Comfy Cloud (RTX Video Super Resolution only there). Tools (colour round-trip test, extra-input test) and alternative or experimental workflows (SDXL inpaint and realism, Qwen-Image-Edit 2509 with SAM3 mask, Qwen Image 2.1 edit, Render to photo from a float EXR depth (local, Load EXR) and its FAST variant, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
+
+## Sequence mode
+
+Set **mode** to *sequence* and the frame range goes to ComfyUI as **one job**: the frames are rendered from Nuke as usual (Reformat, Grade, viewer transform, send exposure… all respected), uploaded once, and the workflow's `LoadImage` is replaced by one `LoadImage` per frame joined with **Batch Images** (ComfyUI core nodes only, so it works on Comfy Cloud too; groups of 50). The mask, if any, is batched the same way; the aux input is not (it is sent once). The results come back with the **original frame numbers**.
+
+Each workflow says how it can run (`"sequence"` in its metadata; shown under the frame range):
+
+| Kind | Workflows | Sequence mode |
+|---|---|---|
+| batch | Depth Anything V2 / 3, MoGe 2, RTX Video Super Resolution | One job, or split with **chunk size** (e.g. to keep Cloud jobs small). Same result as frames mode, faster on Cloud. |
+| temporal | SeedVR2 (later LTX and other video models) | The whole range in one job (chunk size is off). The model looks across frames: less flicker. |
+| no | Edit, Inpaint, Relight, Render to photo, Outpaint | Blocked with a message: these work on one image at a time. Use *frames*. |
+
+All chunks are queued at once; if one fails, ComfyBridge asks to retry just that chunk. Tested: identical PNGs give the same result in both modes (Depth Anything V2: max difference 4e-5).
 
 ## Comfy Cloud
 
@@ -154,7 +172,7 @@ Prompting tips: for **inpaint** describe what *should* be there ("old brick wall
 
 **Bring your own workflow and your own models.** Any image workflow you build in ComfyUI, with any model you have installed, can run from Nuke:
 
-1. Build it in ComfyUI with a `LoadImage` (the plate goes there) and a `Save EXR (ComfyBridge)` (float EXR back) or `SaveImage` (8-bit PNG back).
+1. Build it in ComfyUI with a `LoadImage` (the plate goes there) and a `Save EXR (ComfyBridge)` or core `Save Image (Advanced)` in EXR (float EXR back), or `SaveImage` (8-bit PNG back).
 2. Export it with **Workflow › Export (API)** (the normal UI JSON won't load).
 3. Drop it in `comfy_bridge_workflows` and press **load / reload**.
 
@@ -185,10 +203,13 @@ Optional keys:
 | `"matte": true` | The result's alpha is a matte: output it as alpha. |
 | `"match_format": false` | Keep the result's own size (upscalers, outpaint). Default: scaled back to the plate format. |
 | `"send_exposure": false` | Generative workflow that does not keep the exposure it receives (relight, repaint): send exposure is reset to 0. |
+| `"sequence": "batch"` | Sequence mode: `batch` (frames are independent, can be chunked), `temporal` (whole range in one job), `no` (default: single image only). |
+| `"frame_ratio": 2` | Output frames per input frame (frame generation: N frames → 2N-1). The Read is retimed; a message says so. |
+| `"constraints": {...}` | For video models: `"frames_rule": "8n+1"` (the last frame is repeated to fit, extra frames dropped on return), `"size_multiple": 32` (padded and cropped back), `"max_frames": 121`. With `size_multiple`, `"output_scale"` tells the crop the result's scale. |
 | `"match_exposure": true` (in an input) | That input gets the same send exposure as the plate. |
 | `"inputs": [...]` | Extra images, up to 3: `{"node": "2", "label": "depth", "from": "plate", "layer": "depth", "mono": true, "send": "data"}`. `from`: `plate` / `aux` / `mask`. A `LoadImage` receives an 8-bit PNG; a **Load EXR (ComfyBridge)** receives a float EXR. |
 
-Video workflows that process the whole shot at once (LTX, Wan) don't work yet: frames are sent one by one. More workflows (tools and experiments) are in [`examples/`](examples/README.md).
+Workflows that process the whole shot at once run in [sequence mode](#sequence-mode). More workflows (tools and experiments) are in [`examples/`](examples/README.md).
 
 ## ComfyUI nodes
 
@@ -208,6 +229,7 @@ The code is MIT. **The models are not covered by it.** Some common ones are non-
 - MoGe 2 — MIT.
 - Qwen-Image / Qwen-Image 2512 / Qwen-Image-Edit and the Lightning LoRAs — Apache 2.0. Check each ControlNet's and LoRA's own licence (InstantX Inpainting, Relight LoRA).
 - SeedVR2 (ByteDance) — Apache 2.0.
+- NVIDIA RTX Video Super Resolution — NVIDIA Video Effects SDK licence (check it before paid work).
 - Z-Image Turbo and its Fun ControlNet Union — Apache 2.0.
 - FLUX.1 dev / Fill dev / Kontext dev and FLUX.2 [klein] 9B — non-commercial. FLUX 3 Image Klein — check its licence on Hugging Face before commercial use. FLUX.2 [klein] 4B — Apache 2.0.
 - SDXL-based checkpoints — check each checkpoint's own licence.
@@ -217,7 +239,8 @@ Check every model's licence before using results on paid work.
 ## Known issues / notes
 
 - **Troubleshooting from real use:** a broken `xformers` install can make Depth Anything output smooth blobs (uninstall it); some versions of the DepthAnythingV2 node fail with *"more than one element of the written-to tensor refers to a single memory location"* on sizes that are exact multiples of 14 (replace `.expand(-1, -1, -1, 3)` with `.repeat(1, 1, 1, 3)` in its `nodes.py`).
-- Frames are processed one by one (one job per frame). A sequence mode for video models is on the roadmap. Image models (SDXL, Qwen) are not temporally stable: expect flicker on sequences.
+- In *frames* mode each frame is a separate job. Image models (SDXL, Qwen, Flux) are not temporally stable: expect flicker on sequences. Temporal models (SeedVR2) flicker less in *sequence* mode.
+- Nuke dithers when it writes the 8-bit PNGs that are sent, so two runs of the same plate are not bit-identical (±1/255 in, small differences out).
 - Nuke blocks while ComfyUI works (the progress bar can cancel).
 - Nuke Non-commercial caps output at HD and saves `.nknc` scripts.
 
@@ -237,7 +260,7 @@ If you try it on Linux, an issue with what worked and what didn't is very welcom
 - LTX-2.5 on Comfy Cloud: alpha generation (matte without a green screen), SDR → HDR, restore, with tiled sampling for long and high-resolution shots.
 - Matte refinement (SDMatte / BiRefNet).
 - Video depth with temporal consistency (DepthCrafter), batches with overlap.
-- Sequence mode (one job for the whole frame range) for video models: object removal in video, LTX / Wan.
+- Video models on top of sequence mode: object removal in video, LTX / Wan; Depth Anything 3 multi-view (stable depth + camera).
 - A mode without plate (text to image), e.g. 360° panoramas to light CG.
 - Background execution.
 

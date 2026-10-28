@@ -1,5 +1,6 @@
 {
  "_comfy_bridge": {
+  "sequence": "no",
   "name": "Edit - FLUX 3 Image Klein (distilled)",
   "description": "Instruction edit with FLUX 3 Image Klein (Black Forest Labs, Oct 2026), distilled: 16 steps, no CFG. Call the plate <ref_image_0> and describe the change plus what stays. Works at ~1 MP (megapixels) and is scaled back to the plate format. Check the FLUX 3 licence before commercial use.",
   "source": "Adapted from Comfy-Org workflow_templates: image_flux3_klein_distilled_image_edit (MIT). See THIRD_PARTY_NOTICES.md.",

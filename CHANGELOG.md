@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0
+**Sequence mode: the whole frame range in one ComfyUI job.**
+- New **mode** knob (*frames* / *sequence*) and **chunk size**. In sequence mode the rendered frames are uploaded once and the workflow's `LoadImage` becomes one `LoadImage` per frame joined with core **Batch Images** (groups of 50); a mask goes through **Batch Masks**; the aux input is sent once. Core nodes only, so it runs on Comfy Cloud. Results keep the original frame numbers and go to the usual versioned folder and Read.
+- Workflows declare how they can run: `"sequence": "batch"` (Depth Anything V2 / 3, MoGe 2, RTX VSR: can be split in chunks), `"temporal"` (SeedVR2: whole range in one job) or `"no"` (edit, inpaint, relight, render to photo, outpaint: sequence mode is blocked with a clear message, before anything is rendered).
+- All chunks are queued at once; a failed chunk can be retried alone.
+- Ready for video models: `"constraints"` (`frames_rule` 8n+1 with the last frame repeated and the extra frames dropped on return, `size_multiple` with pad and crop back, `max_frames`) and `"frame_ratio"` (frame generation: continuous numbering, Read retimed with a message).
+- Tested: Depth Anything V2 (local) and 3, RTX VSR and chunk size 4 on Comfy Cloud give the same result and numbering as frames mode; RTX VSR 10 frames ~65 s instead of ~150 s; SeedVR2 in sequence mode adds about 40 % less flicker than frame by frame.
+- **Library: 12 workflows.** New **Upscale – RTX Video Super Resolution** (NVIDIA, Comfy Cloud only): x1–x4 upscale, denoise or deblur.
+- Core **Save Image (Advanced)** accepted as the output node (EXR): data and viewer-transform results come back as is.
+- README: new header image and title (ComfyBridge), *Sequence mode* section, new metadata keys.
+
 ## 0.8.3
 **Library: 11 workflows, all of them run on Comfy Cloud too.**
 - **Depth – Depth Anything 3** (ComfyUI core nodes, no custom node; local and Comfy Cloud): relative depth (near = white) with sharp edges, optional sky clip. Defaults to the Apache 2.0 models.

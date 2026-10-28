@@ -1,5 +1,6 @@
 {
  "_comfy_bridge": {
+  "sequence": "batch",
   "name": "Depth - MoGe 2 (depth / normals)",
   "description": "MoGe 2 (ComfyUI core nodes, local and Comfy Cloud, MIT licence). Best single-frame geometry: depth comes back 0-1, near = white (ready for the aux of Render to photo, ZDefocus math 'far = 0'), or a normal map. Set the plate's horizontal FOV if you know it; 0 = estimated.",
   "output": "data",

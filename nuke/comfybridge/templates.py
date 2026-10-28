@@ -156,6 +156,10 @@ Group {
  first {{root.first_frame}}
  addUserKnob {3 last l "last frame" -STARTLINE}
  last {{root.last_frame}}
+ addUserKnob {4 mode l mode M {frames sequence}}
+ addUserKnob {3 chunk_size l "chunk size" -STARTLINE}
+ chunk_size 0
+ addUserKnob {26 seq_info l "" -STARTLINE T " "}
  addUserKnob {4 in_color l "input color" M {%(in_viewer)s %(in_srgb)s}}
  addUserKnob {7 send_exposure l "send exposure (stops)" R -4 4}
  addUserKnob {4 out_type l result M {%(out_auto)s %(out_data)s %(out_color)s}}

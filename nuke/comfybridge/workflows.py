@@ -12,7 +12,7 @@ from .client import ComfyError
 from .help import default_param_tip
 
 META_KEY = "_comfy_bridge"
-SAVE_TYPES = ("ComfyBridgeSaveEXR", "SaveImage", "PreviewImage")
+SAVE_TYPES = ("ComfyBridgeSaveEXR", "SaveImageAdvanced", "SaveImage", "PreviewImage")
 _OUT_KEYS = ("exr", "images")
 # workflows live next to comfy_bridge.py (one level above this package)
 WORKFLOW_DIR = os.environ.get(
@@ -319,6 +319,14 @@ def build_prompt(wf, load_id, save_id, image_name, prefix, is_data, display_mode
             save["inputs"]["transfer"], save["inputs"]["precision"] = "data (as is)", "half"
         else:
             save["inputs"]["transfer"], save["inputs"]["precision"] = "sRGB -> linear", "half"
+    elif save.get("class_type") == "SaveImageAdvanced" and save["inputs"].get("format") == "exr":
+        # core EXR saver (local and Cloud). Data and viewer-transform plates go out as is;
+        # colour keeps the workflow's choice (sRGB, HDR for TrueHDR / HLG, linear...).
+        if is_data:
+            save["inputs"]["format.input_color_space"] = "linear"
+            save["inputs"]["format.bit_depth"] = "32-bit float"
+        elif display_mode:
+            save["inputs"]["format.input_color_space"] = "linear"
     return p
 
 

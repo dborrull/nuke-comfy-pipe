@@ -1,5 +1,6 @@
 {
  "_comfy_bridge": {
+  "sequence": "no",
   "name": "Edit - Qwen Image Edit 2511 (plate + reference: material, object, style)",
   "description": "Instruction edit with Qwen-Image-Edit 2511: image 1 = plate, image 2 = aux input (a material swatch, an object, a style frame). E.g. 'change the leather of the sofa in image 1 to the fur in image 2'. Better consistency than 2509. Lightning LoRA: 4 steps, cfg 1 (set lightning to 0 and use 40 steps, cfg 4 for full quality). Heavy locally: made for Comfy Cloud.",
   "source": "Adapted from Comfy-Org workflow_templates: image_qwen_image_edit_2511 (MIT). See THIRD_PARTY_NOTICES.md.",

@@ -1,5 +1,6 @@
 {
  "_comfy_bridge": {
+  "sequence": "no",
   "name": "Outpaint - Flux.1 Fill (extend the frame)",
   "description": "Extends the plate beyond its edges (set left / top / right / bottom in pixels). The result is BIGGER than the plate: it comes back with the new size, the original sits at (left, bottom) in Nuke coordinates. Keep the total under ~2 MP (downscale 4K plates first). Flux.1 dev licence: non-commercial unless you have a licence from Black Forest Labs.",
   "source": "Adapted from Comfy-Org workflow_templates: flux_fill_outpaint_example (MIT). See THIRD_PARTY_NOTICES.md.",

@@ -163,6 +163,7 @@
     "class_type": "LoadImage"
   },
   "_comfy_bridge": {
+    "sequence": "no",
     "name": "Render to photo - Qwen-Image 2512 + depth image (PNG)",
     "description": "Same as 'Render to photo' but the depth arrives as a ready-made grey image (near = white): a depth exported from Blender, a Depth Anything pass, or one painted by hand. Use the EXR version for raw Z passes.",
     "output": "color",

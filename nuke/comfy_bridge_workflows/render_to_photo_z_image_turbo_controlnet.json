@@ -1,5 +1,6 @@
 {
  "_comfy_bridge": {
+  "sequence": "no",
   "name": "Render to photo - Z-Image Turbo + ControlNet Union (depth / canny)",
   "description": "Generates a new photo that follows a control image. Default: the aux input is the control - a grey depth (near = white, 0-1, e.g. Blender depth normalised or a Depth Anything result), a pose or a line drawing. 'edges from plate' on: canny edges of the plate instead (aux not needed). Very fast (8 steps). Apache 2.0 models: fine for commercial work.",
   "source": "Adapted from Comfy-Org workflow_templates: image_z_image_turbo_fun_union_controlnet (MIT). See THIRD_PARTY_NOTICES.md.",

@@ -1,5 +1,6 @@
 {
  "_comfy_bridge": {
+  "sequence": "no",
   "name": "Inpaint - Qwen-Image InstantX (mask, Cloud)",
   "description": "Fill the masked area following the prompt: clean plates, remove or replace objects. Needs a mask (mask input or plate alpha; grow / soften it in the node). Runs on Comfy Cloud (core nodes only). Lightning LoRA: 4 steps, cfg 1 (set it to 0 and use 20 steps, cfg 2.5 for full quality). Qwen-Image: Apache 2.0.",
   "source": "Adapted from Comfy-Org workflow_templates: image_qwen_image_instantx_inpainting_controlnet (MIT). See THIRD_PARTY_NOTICES.md.",

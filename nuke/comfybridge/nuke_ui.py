@@ -18,6 +18,7 @@ except ImportError:  # lets the module be imported (and tested) outside Nuke
 from .client import ComfyClient, ComfyError
 from .help import QUICK_HELP, REPO_URL
 from . import models as _models
+from . import sequence as _seq
 from .templates import bake_template, node_template
 from .workflows import (CB_SAVE_EXR, IN_VIEWER, LIB_NONE, LUT, MAX_SLOTS, OUT_AUTO, OUT_DATA,
                         SAVE_TYPES, SEND_DATA, _CS_LINEAR, _CS_SRGB, adapt_for_cloud,
@@ -215,6 +216,7 @@ def load_workflow_into(node, force=True):
     node["wf_desc"].setValue("<i>%s</i>" % desc if desc else " ")
     # each workflow sets it: upscalers / outpaint keep their bigger size
     node["match_format"].setValue(bool(meta.get("match_format", True)))
+    _update_seq_info(node, meta)
     specs = param_specs(wf, meta)
     client = ComfyClient(_server(node), timeout=5)
     _update_models_info(node, wf, meta, client)
@@ -414,6 +416,29 @@ def download_models(node):
         report.append("Still to download by hand:\n" + "\n".join(m["file"] for m in manual))
     nuke.message("ComfyBridge:\n\n" + "\n\n".join(report))
     load_workflow_into(node)   # refresh dropdowns and the models line
+
+
+def _seq_mode(node):
+    """'frames' or 'sequence' (nodes made before v0.9 have no mode knob: frames)."""
+    if "mode" not in node.knobs():
+        return _seq.MODE_FRAMES
+    return _seq.MODE_SEQUENCE if node["mode"].value() == _seq.MODE_SEQUENCE else _seq.MODE_FRAMES
+
+
+def _update_seq_info(node, meta):
+    if "seq_info" not in node.knobs():
+        return
+    kind = _seq.sequence_kind(meta)
+    colour = {"batch": "lightgreen", "temporal": "lightgreen", "no": "gray"}[kind]
+    extra = ""
+    if _seq.frame_ratio(meta) != 1:
+        extra = ", %g frames out per frame in" % _seq.frame_ratio(meta)
+    node["seq_info"].setValue("<small><font color=%s>%s%s</font></small>"
+                              % (colour, _seq.kind_label(kind), extra))
+    try:
+        node["chunk_size"].setEnabled(kind == _seq.SEQ_BATCH)
+    except Exception as e:
+        _log("could not grey out chunk size: %s" % e)
 
 
 def _has_slots(node):
@@ -631,6 +656,10 @@ def _run(node):
     if last < first:
         raise ComfyError("Invalid frame range.")
     frames = list(range(first, last + 1))
+    seq_mode = _seq_mode(node) == _seq.MODE_SEQUENCE
+    kind = _seq.sequence_kind(meta)
+    if seq_mode:
+        _seq.check_mode(kind, len(frames), meta)   # before any folder or render
 
     out_dir = node["out_dir"].evaluate() or _default_out_dir(node)
     if node["versioning"].value():
@@ -677,6 +706,7 @@ def _run(node):
                      "output the matte as alpha. Create a new ComfyBridge to get it.\n"
                      "(The matte is still in the alpha of the Read next to the node.)")
 
+    out_first, out_last = first, last
     task = nuke.ProgressTask("ComfyBridge")
     out_pattern = None
     try:
@@ -688,6 +718,12 @@ def _run(node):
             except TypeError:  # older API without name lookup
                 with node:
                     nuke.execute(nuke.toNode(w), first, last, 1)
+
+        if seq_mode:
+            out_pattern, out_first, out_last = _run_sequence(
+                node, client, task, wf, meta, kind, frames, load_id, save_id, mask_id,
+                slot_runs, params, is_data, dv is not None, in_pattern, mask_pattern, out_dir)
+            frames = []   # skips the per-frame loop below
 
         jobs = []
         for i, f in enumerate(frames):
@@ -728,6 +764,8 @@ def _run(node):
         task.setProgress(100)
     finally:
         del task
+    if out_pattern is None:
+        raise ComfyError("Nothing came back from ComfyUI.")
 
     # output colour
     is_exr = out_pattern.lower().endswith(".exr")
@@ -760,13 +798,13 @@ def _run(node):
     node["cs_state"].setValue(json.dumps({"exposure": exp_used,
         "raw": bool(is_data or ocio_mode), "colorspace": out_cs,
         "ocio": [dv[0], dv[1], work_cs] if (ocio_mode and not is_data) else None}))
-    node["cb_first"].setValue(first)
-    node["cb_last"].setValue(last)
+    node["cb_first"].setValue(out_first)
+    node["cb_last"].setValue(out_last)
     node["cb_out_file"].setValue(out_pattern)
     # Write the path straight into the internal Read: changing its file knob
     # (unlike an expression) makes Nuke reload it and refresh the node output.
-    for knob, value in (("first", first), ("last", last), ("origfirst", first),
-                        ("origlast", last), ("file", out_pattern)):
+    for knob, value in (("first", out_first), ("last", out_last), ("origfirst", out_first),
+                        ("origlast", out_last), ("file", out_pattern)):
         _k(node, "CB_Read", knob, value)
     node["cb_has_result"].setValue(True)
     version = os.path.basename(out_dir)
@@ -781,6 +819,99 @@ def _run(node):
         nuke.updateUI()
     except Exception:
         pass  # expected: not every Nuke setup has it
+
+
+def _run_sequence(node, client, task, wf, meta, kind, frames, load_id, save_id, mask_id,
+                  slot_runs, params, is_data, display_mode, in_pattern, mask_pattern, out_dir):
+    """Sequence mode: upload the rendered frames, one job per chunk (all queued at once),
+    results mapped back to the original frame numbers. A failed chunk can be retried
+    alone. Returns (out_pattern, out_first, out_last)."""
+    name = node.name()
+    ratio = _seq.frame_ratio(meta)
+    cons = _seq.constraints(meta)
+    size = int(node["chunk_size"].value()) if "chunk_size" in node.knobs() else 0
+    chunks = _seq.make_chunks(frames, size, kind)
+    if ratio != 1 and len(chunks) > 1:
+        chunks = [list(frames)]   # retimed output must be continuous: one job
+    _log("sequence: %d frames, %d job(s), kind %s, frame ratio %g"
+         % (len(frames), len(chunks), kind, ratio))
+
+    # 1. upload every frame once (plate, mask); extra inputs (aux) go once, from the first frame
+    plate, mask = {}, {}
+    for i, f in enumerate(frames):
+        if task.isCancelled():
+            raise ComfyError("Cancelled by the user.")
+        task.setMessage("Uploading frame %d  (%d/%d)" % (f, i + 1, len(frames)))
+        task.setProgress(int(20.0 * i / len(frames)))
+        plate[f] = client.upload_image(in_pattern.replace("%04d", "%04d" % f),
+                                       "%s_seq_%04d.png" % (name, f))
+        if mask_id:
+            mask[f] = client.upload_image(mask_pattern.replace("%04d", "%04d" % f),
+                                          "%s_seq_%04d_mask.png" % (name, f))
+    extra = {}
+    for _w, pattern, nid, suffix in slot_runs:
+        extra[nid] = client.upload_image(pattern.replace("%04d", "%04d" % frames[0]),
+                                         "%s_seq_%04d_%s" % (name, frames[0], suffix))
+    w, h = _seq.png_size(in_pattern.replace("%04d", "%04d" % frames[0]))
+
+    # 2. one prompt per chunk
+    def make_prompt(ci, chunk):
+        names, _added = _seq.pad_names([plate[f] for f in chunk], cons.get("frames_rule"))
+        mnames = None
+        if mask_id:
+            mnames, _ = _seq.pad_names([mask[f] for f in chunk], cons.get("frames_rule"))
+        p = build_prompt(wf, load_id, save_id, names[0],
+                         "comfy_bridge/%s_seq_c%02d" % (name, ci), is_data, display_mode,
+                         params, mask_id, mnames[0] if mnames else None, extra)
+        p = _seq.expand_to_sequence(p, load_id, names, mask_id, mnames)
+        batch_id = "cbseq_%s_b00" % load_id if len(names) <= _seq.BATCH_MAX else "cbseq_%s_ball" % load_id
+        if batch_id in p:
+            _seq.apply_size_multiple(p, batch_id, save_id, w, h, cons.get("size_multiple"),
+                                     float(meta.get("output_scale", 1) or 1))
+        return adapt_for_cloud(p) if client.cloud else p
+
+    prompts = [make_prompt(ci, c) for ci, c in enumerate(chunks)]
+    jobs = [client.queue(p) for p in prompts]
+
+    # 3. wait in order, download, map to the original numbering
+    out_pattern = None
+    first_out = frames[0]
+    written = []
+    for ci, chunk in enumerate(chunks):
+        label = "frames %d-%d" % (chunk[0], chunk[-1])
+        while True:
+            task.setMessage("%s working on %s  (job %d/%d)" % (
+                "Comfy Cloud" if client.cloud else "ComfyUI", label, ci + 1, len(chunks)))
+            task.setProgress(20 + int(70.0 * ci / len(chunks)))
+            try:
+                hist = wait_for(client, jobs[ci], task.isCancelled, pending=jobs[ci:])
+                imgs = output_images(hist, save_id)
+                nums = _seq.output_frames(chunk, len(imgs), ratio, first_out)
+                break
+            except ComfyError as e:
+                if "Cancelled" in str(e):
+                    raise
+                if not nuke.ask("ComfyBridge: job %d/%d (%s) failed:\n\n%s\n\nRetry this chunk?"
+                                % (ci + 1, len(chunks), label, str(e)[:1500])):
+                    raise ComfyError("Stopped at %s. Frames written so far: %s"
+                                     % (label, ("%d-%d" % (written[0], written[-1])) if written else "none"))
+                jobs[ci] = client.queue(prompts[ci])
+        for j, (num, img) in enumerate(zip(nums, imgs)):
+            if out_pattern is None:
+                ext = os.path.splitext(img["filename"])[1].lower() or ".png"
+                out_pattern = os.path.join(out_dir, name + ".%04d" + ext).replace("\\", "/")
+            task.setMessage("Downloading frame %d  (%s)" % (num, label))
+            task.setProgress(20 + int(70.0 * ci / len(chunks) + 10.0 * j / max(1, len(nums))))
+            client.download(img, out_pattern.replace("%04d", "%04d" % num))
+            written.append(num)
+        first_out = (nums[-1] + 1) if nums else first_out
+    if not written:
+        raise ComfyError("The sequence returned no images.")
+    if ratio != 1:
+        nuke.message("ComfyBridge: this workflow changes the frame count (x%g).\n"
+                     "%d frames in -> %d out, written as %d-%d: the Read is retimed "
+                     "against the plate." % (ratio, len(frames), len(written), written[0], written[-1]))
+    return out_pattern, min(written), max(written)
 
 
 def bake_read(node):

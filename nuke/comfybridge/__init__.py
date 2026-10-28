@@ -8,4 +8,4 @@ Designed and tested by David Borrull; code written with Claude (Anthropic).
 See CHANGELOG.md for the version history.
 """
 
-__version__ = "0.8.3"
+__version__ = "0.9.0"

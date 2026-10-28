@@ -1,0 +1,110 @@
+{
+  "_comfy_bridge": {
+    "name": "Upscale - RTX Video Super Resolution",
+    "sequence": "batch",
+    "frame_ratio": 1,
+    "description": "NVIDIA RTX Video Super Resolution: fast x1-x4 upscale, denoise or deblur, frame by frame (batch). Comfy Cloud only (pack comfyui_nvidia_rtx_nodes). The result keeps the bigger size. NVIDIA Video Effects SDK licence: check it before paid work.",
+    "output": "color",
+    "plate_node": "1",
+    "match_format": false,
+    "sampler_params": false,
+    "params": [
+      {
+        "label": "scale",
+        "node": "2",
+        "input": "resize_type.scale",
+        "min": 1.0,
+        "max": 4.0,
+        "tooltip": "Upscale factor (1-4). DENOISE_* and DEBLUR_* modes ignore it and keep the input size."
+      },
+      {
+        "label": "quality",
+        "node": "2",
+        "input": "quality",
+        "options": [
+          "BICUBIC",
+          "LOW",
+          "MEDIUM",
+          "HIGH",
+          "ULTRA",
+          "DENOISE_LOW",
+          "DENOISE_MEDIUM",
+          "DENOISE_HIGH",
+          "DENOISE_ULTRA",
+          "DEBLUR_LOW",
+          "DEBLUR_MEDIUM",
+          "DEBLUR_HIGH",
+          "DEBLUR_ULTRA",
+          "HIGHBITRATE_LOW",
+          "HIGHBITRATE_MEDIUM",
+          "HIGHBITRATE_HIGH",
+          "HIGHBITRATE_ULTRA",
+          "STREAMING_MEDIUM",
+          "STREAMING_ULTRA"
+        ],
+        "tooltip": "NVIDIA Video Effects model. ULTRA = best upscale. DENOISE / DEBLUR clean at the original size; HIGHBITRATE keeps clean sources."
+      },
+      {
+        "label": "strength",
+        "node": "2",
+        "input": "strength",
+        "min": 0.0,
+        "max": 1.0,
+        "tooltip": "Effect strength."
+      },
+      {
+        "label": "image_encoding",
+        "node": "2",
+        "input": "image_encoding",
+        "options": [
+          "8-bit RGB",
+          "10-bit RGB (RGB10A2)"
+        ],
+        "tooltip": "Pixel encoding inside the SDK. 10-bit keeps more precision; it does not turn SDR into HDR."
+      }
+    ],
+    "source": "ComfyBridge v0.9.0. Node: comfyui_nvidia_rtx_nodes (NVIDIA)."
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "plate"
+    },
+    "inputs": {
+      "image": "plate.png"
+    }
+  },
+  "2": {
+    "class_type": "RTXVideoSuperResolution",
+    "_meta": {
+      "title": "RTX Video Super Resolution"
+    },
+    "inputs": {
+      "images": [
+        "1",
+        0
+      ],
+      "resize_type": "scale by multiplier",
+      "resize_type.scale": 2.0,
+      "quality": "ULTRA",
+      "strength": 1.0,
+      "image_encoding": "8-bit RGB"
+    }
+  },
+  "3": {
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "output"
+    },
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "comfy_bridge",
+      "format": "exr",
+      "format.bit_depth": "16-bit float",
+      "format.input_color_space": "sRGB"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 {
  "_comfy_bridge": {
+  "sequence": "no",
   "name": "Relight - Qwen Image Edit 2509 (Relight LoRA)",
   "description": "Changes the lighting of the plate from a text description (time of day, key direction, colour temperature, softness) and keeps the content. Works at about 1 MP and is scaled back to the plate format. Lightning LoRA: 4 steps, cfg 1. Heavy locally (20 GB model): made for Comfy Cloud.",
   "source": "Adapted from Comfy-Org workflow_templates: image_qwen_image_edit_2509_relight (MIT). See THIRD_PARTY_NOTICES.md.",
