@@ -141,6 +141,7 @@
   },
   "_comfy_bridge": {
     "sequence": "temporal",
+    "media": "both",
     "name": "Upscale - SeedVR2 3B Int8",
     "description": "Upscales and restores the plate with SeedVR2 (one-step diffusion, ByteDance, Apache 2.0). The result keeps the bigger size: 'match input format' is switched off on load. x2 is safe on 8 GB; x4 on a full HD plate is very heavy.",
     "output": "color",

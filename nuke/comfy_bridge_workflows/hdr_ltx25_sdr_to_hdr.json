@@ -1,0 +1,403 @@
+{
+  "_comfy_bridge": {
+    "name": "HDR - LTX-2.5 SDR to HDR",
+    "sequence": "temporal",
+    "description": "Rebuilds HDR from an SDR plate: highlights clipped at 1.0 come back with values above 1 (LTX-2.5 22B + SDR-to-HDR IC-LoRA, Lightricks). Comfy Cloud only, whole range in one job (padded to 8n+1 frames and multiples of 32 px, undone on return). Send the plate as you see it (viewer transform or sRGB): it is read as display sRGB. The result comes back scene-linear Rec.709 (Read tagged linear, viewer transform not undone). Mid-tones come back about half a stop brighter than the plate: match them with a Grade if needed. Up to 241 frames.",
+    "output": "color",
+    "plate_node": "1",
+    "match_format": true,
+    "send_exposure": false,
+    "sampler_params": false,
+    "constraints": {
+      "frames_rule": "8n+1",
+      "size_multiple": 32,
+      "max_frames": 241
+    },
+    "output_scale": 1,
+    "params": [
+      {
+        "label": "input",
+        "node": "30",
+        "input": "color_space",
+        "options": [
+          "srgb_gamma",
+          "srgb",
+          "acescg",
+          "acescct"
+        ],
+        "tooltip": "How the plate is encoded when it reaches ComfyUI. srgb_gamma: display sRGB (normal case: the PNG ComfyBridge sends)."
+      },
+      {
+        "label": "prompt",
+        "node": "7",
+        "input": "text",
+        "type": "text",
+        "tooltip": "Optional. Lightricks conditions this LoRA with fixed scene embeddings that Comfy Cloud does not have; an empty prompt replaces them."
+      },
+      {
+        "label": "fps",
+        "node": "9",
+        "input": "frame_rate",
+        "type": "float",
+        "min": 1,
+        "max": 30,
+        "also": [
+          [
+            "12",
+            "frame_rate"
+          ]
+        ],
+        "tooltip": "Frame rate for the conditioning (Lightricks caps it at 30)."
+      },
+      {
+        "label": "lora strength",
+        "node": "3",
+        "input": "strength_model",
+        "type": "float",
+        "min": 0,
+        "max": 1.5
+      },
+      {
+        "label": "seed",
+        "node": "15",
+        "input": "noise_seed",
+        "type": "int"
+      },
+      {
+        "label": "model",
+        "node": "2",
+        "input": "unet_name",
+        "type": "string"
+      }
+    ],
+    "source": "ComfyBridge v0.10. Rebuilt in API format from the LTX-2.5 SDR to HDR workflow (float32 VAE, ACEScct working space, 8-step distilled sampler). Scene embeddings replaced by an empty Gemma prompt (the embeddings file is not on Comfy Cloud).",
+    "out_colorspace": "linear_rec709"
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "plate"
+    },
+    "inputs": {
+      "image": "plate.png"
+    }
+  },
+  "30": {
+    "class_type": "LTXVSDRToHDRWorkingSpace",
+    "_meta": {
+      "title": "SDR to ACEScct"
+    },
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "color_space": "srgb_gamma"
+    }
+  },
+  "2": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "3": {
+    "class_type": "LTXICLoRALoaderModelOnly",
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "lora_name": "ltx-2.5-22b-ic-lora-sdr-to-hdr-1.0.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "video vae"
+    },
+    "inputs": {
+      "vae_name": "ltx-2.5-video-vae-bf16.safetensors"
+    }
+  },
+  "41": {
+    "class_type": "LTXVVAEForceFloat32",
+    "inputs": {
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "5": {
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "audio vae"
+    },
+    "inputs": {
+      "vae_name": "ltx-2.5-audio-vae-bf16.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "type": "ltxv",
+      "device": "default"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "prompt"
+    },
+    "inputs": {
+      "clip": [
+        "6",
+        0
+      ],
+      "text": ""
+    }
+  },
+  "9": {
+    "class_type": "LTXVConditioning",
+    "inputs": {
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "frame_rate": 24.0
+    }
+  },
+  "10": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "30",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "inputs": {
+      "width": [
+        "10",
+        0
+      ],
+      "height": [
+        "10",
+        1
+      ],
+      "length": [
+        "10",
+        2
+      ],
+      "batch_size": 1
+    }
+  },
+  "12": {
+    "class_type": "LTXVEmptyLatentAudio",
+    "inputs": {
+      "frames_number": [
+        "10",
+        2
+      ],
+      "frame_rate": 24,
+      "batch_size": 1,
+      "audio_vae": [
+        "5",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "LTXAddVideoICLoRAGuide",
+    "inputs": {
+      "positive": [
+        "9",
+        0
+      ],
+      "negative": [
+        "9",
+        1
+      ],
+      "vae": [
+        "41",
+        0
+      ],
+      "latent": [
+        "11",
+        0
+      ],
+      "image": [
+        "30",
+        0
+      ],
+      "frame_idx": 0,
+      "strength": 1.0,
+      "latent_downscale_factor": [
+        "3",
+        1
+      ],
+      "crop": "disabled",
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64
+    }
+  },
+  "14": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "13",
+        2
+      ],
+      "audio_latent": [
+        "12",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 42
+    }
+  },
+  "16": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "positive": [
+        "13",
+        0
+      ],
+      "negative": [
+        "13",
+        1
+      ],
+      "cfg": 1.0
+    }
+  },
+  "17": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "18": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
+    }
+  },
+  "19": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "15",
+        0
+      ],
+      "guider": [
+        "16",
+        0
+      ],
+      "sampler": [
+        "17",
+        0
+      ],
+      "sigmas": [
+        "18",
+        0
+      ],
+      "latent_image": [
+        "14",
+        0
+      ]
+    }
+  },
+  "21": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "19",
+        0
+      ]
+    }
+  },
+  "22": {
+    "class_type": "LTXVCropGuides",
+    "inputs": {
+      "positive": [
+        "13",
+        0
+      ],
+      "negative": [
+        "13",
+        1
+      ],
+      "latent": [
+        "21",
+        0
+      ]
+    }
+  },
+  "24": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": [
+        "22",
+        2
+      ],
+      "vae": [
+        "41",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 128,
+      "temporal_overlap": 32
+    }
+  },
+  "25": {
+    "class_type": "LTXVHDRDecodePostprocess",
+    "_meta": {
+      "title": "HDR postprocess"
+    },
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "transfer": "acescct",
+      "exposure": 0.0,
+      "save_exr": false
+    }
+  },
+  "23": {
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "output"
+    },
+    "inputs": {
+      "images": [
+        "25",
+        1
+      ],
+      "filename_prefix": "comfy_bridge",
+      "format": "exr",
+      "format.bit_depth": "16-bit float",
+      "format.input_color_space": "linear"
+    }
+  }
+}

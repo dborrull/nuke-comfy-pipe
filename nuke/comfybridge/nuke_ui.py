@@ -20,11 +20,11 @@ from .help import QUICK_HELP, REPO_URL
 from . import models as _models
 from . import sequence as _seq
 from .templates import bake_template, node_template
-from .workflows import (CB_SAVE_EXR, IN_VIEWER, LIB_NONE, LUT, MAX_SLOTS, OUT_AUTO, OUT_DATA,
+from .workflows import (CB_SAVE_EXR, IN_VIEWER, LIB_NONE, LUT, library_kind, MAX_SLOTS, OUT_AUTO, OUT_DATA,
                         SAVE_TYPES, SEND_DATA, _CS_LINEAR, _CS_SRGB, adapt_for_cloud,
                         apply_server_options, build_prompt, cloud_unsupported,
                         cast_param, find_node, load_workflow, match_layer, next_version_dir,
-                        ocio_names, output_images, param_specs, parse_viewer_process,
+                        named_colorspace, ocio_names, output_images, param_specs, parse_viewer_process,
                         pick_colorspace, resolve_model_files, scan_library, slot_specs,
                         wait_for)
 
@@ -145,6 +145,9 @@ def knob_changed(node, knob):
         name = knob.name()
     except Exception:
         return
+    if name == "lib_type":
+        _refresh_library(node)
+        return
     if name not in ("backend", "showPanel"):
         return
     cloud = _server(node) == "cloud" and "backend" in node.knobs()
@@ -158,6 +161,42 @@ def knob_changed(node, knob):
             load_workflow_into(node, force=False)
         except Exception as e:
             _log("could not reload the workflow: %s" % e)
+
+
+def _lib_type(node):
+    try:
+        return node["lib_type"].value() if "lib_type" in node.knobs() else "all"
+    except Exception:
+        return "all"
+
+
+def _refresh_library(node, keep=None):
+    """Fill the library pulldown with the workflows of the chosen type. The
+    current choice stays in the list even if it is of another type."""
+    shown = list(scan_library(show=_lib_type(node)))
+    keep = keep if keep is not None else node["library"].value()
+    if keep and keep != LIB_NONE and keep not in shown:
+        shown.append(keep)
+    try:
+        node["library"].setValues([LIB_NONE] + shown)
+        node["library"].setValue(keep if keep in shown else LIB_NONE)
+    except Exception as e:
+        _log("could not refresh the library list: %s" % e)
+
+
+def _auto_mode(node, meta):
+    """Video workflows run as a sequence, image ones frame by frame. Workflows of
+    both kinds (depth, upscale) follow the type filter (video -> sequence,
+    image -> frames) and keep the user's choice with 'all'."""
+    if "mode" not in node.knobs():
+        return
+    kind = library_kind(meta)
+    if kind == "both":
+        kind = _lib_type(node)
+    if kind == "video":
+        node["mode"].setValue(_seq.MODE_SEQUENCE)
+    elif kind == "image":
+        node["mode"].setValue(_seq.MODE_FRAMES)
 
 
 def create_node():
@@ -216,6 +255,10 @@ def load_workflow_into(node, force=True):
     node["wf_desc"].setValue("<i>%s</i>" % desc if desc else " ")
     # each workflow sets it: upscalers / outpaint keep their bigger size
     node["match_format"].setValue(bool(meta.get("match_format", True)))
+    if meta.get("work_size") and "work_size" in node.knobs():
+        # heavy video models: send at the size they are made for (still editable)
+        node["work_size"].setValue(int(meta["work_size"]))
+    _auto_mode(node, meta)
     _update_seq_info(node, meta)
     specs = param_specs(wf, meta)
     client = ComfyClient(_server(node), timeout=5)
@@ -233,13 +276,8 @@ def load_workflow_into(node, force=True):
         nuke.message("ComfyBridge:\n" + str(e))
         return
     node["wf_loaded"].setValue(path)
-    # refresh the library list in case new workflows were added
-    try:
-        node["library"].setValues([LIB_NONE] + list(lib))
-        if choice in lib:
-            node["library"].setValue(choice)
-    except Exception as e:
-        _log("could not refresh the library list: %s" % e)
+    # refresh the library list (new workflows, type filter)
+    _refresh_library(node, keep=choice if choice in lib else LIB_NONE)
 
 
 # ---- models: check and download -------------------------------------------
@@ -770,7 +808,20 @@ def _run(node):
     # output colour
     is_exr = out_pattern.lower().endswith(".exr")
     out_cs = None
-    if is_data:
+    named = meta.get("out_colorspace") if not is_data else None
+    if named:
+        # already scene-linear (e.g. ACEScg from LTX SDR->HDR): tag the Read,
+        # never undo the viewer transform on it
+        out_cs = named_colorspace(named, available)
+        node["cb_out_ocio"].setValue(False)
+        node["cb_out_raw"].setValue(out_cs is None)
+        if out_cs:
+            _k(node, "CB_Read", "colorspace", out_cs)
+        else:
+            nuke.message("ComfyBridge: the result is scene-linear %s, but the OCIO config of this "
+                         "script has no such colour space. It is read raw: convert it yourself "
+                         "(e.g. OCIOColorSpace %s -> your working space)." % (named, named))
+    elif is_data:
         node["cb_out_raw"].setValue(True)
         node["cb_out_ocio"].setValue(False)
     elif ocio_mode:
@@ -796,8 +847,8 @@ def _run(node):
     if "cb_exp_used" in node.knobs():
         node["cb_exp_used"].setValue(exp_used)
     node["cs_state"].setValue(json.dumps({"exposure": exp_used,
-        "raw": bool(is_data or ocio_mode), "colorspace": out_cs,
-        "ocio": [dv[0], dv[1], work_cs] if (ocio_mode and not is_data) else None}))
+        "raw": bool(is_data or (ocio_mode and not named) or (named and not out_cs)), "colorspace": out_cs,
+        "ocio": [dv[0], dv[1], work_cs] if (ocio_mode and not is_data and not named) else None}))
     node["cb_first"].setValue(out_first)
     node["cb_last"].setValue(out_last)
     node["cb_out_file"].setValue(out_pattern)

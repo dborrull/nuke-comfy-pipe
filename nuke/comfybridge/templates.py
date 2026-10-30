@@ -8,7 +8,7 @@ import re
 
 from . import __version__
 from .help import TIPS
-from .workflows import (IN_SRGB, IN_VIEWER, LIB_NONE, MAX_SLOTS, OUT_AUTO, OUT_COLOR, OUT_DATA,
+from .workflows import (IN_SRGB, IN_VIEWER, LIB_NONE, LIB_TYPES, MAX_SLOTS, OUT_AUTO, OUT_COLOR, OUT_DATA,
                         SEND_COLOR, SEND_DATA)
 
 
@@ -145,7 +145,8 @@ Group {
  addUserKnob {22 test l "test connection" -STARTLINE T %(py_test)s}
  addUserKnob {22 help l help -STARTLINE T %(py_help)s}
  addUserKnob {26 div_wf l workflow}
- addUserKnob {4 library l library M {%(lib)s}}
+ addUserKnob {4 lib_type l type M {%(lib_types)s}}
+ addUserKnob {4 library l library -STARTLINE M {%(lib)s}}
  addUserKnob {22 load l "load / reload" -STARTLINE T %(py_load)s}
  addUserKnob {2 workflow l "file (API .json)"}
  addUserKnob {26 wf_desc l "" +STARTLINE T " "}
@@ -424,7 +425,7 @@ push $N_in
  }
 end_group
 """ % {
-        "server": _nk_quote(server), "lib": lib, "W": W, "H": H, "version": __version__,
+        "server": _nk_quote(server), "lib": lib, "lib_types": " ".join(LIB_TYPES), "W": W, "H": H, "version": __version__,
         "py_test": _py("test_connection"), "py_load": _py("load_workflow_into"),
         "py_run": _py("run"), "py_repo": _py("open_repo"), "py_changed": _nk_quote("import comfy_bridge; comfy_bridge.knob_changed(nuke.thisNode(), nuke.thisKnob())"), "py_bake": _py("bake_read"), "py_help": _py("show_help"), "py_models": _py("download_models"),
         "in_viewer": _nk_quote(IN_VIEWER), "in_srgb": _nk_quote(IN_SRGB),

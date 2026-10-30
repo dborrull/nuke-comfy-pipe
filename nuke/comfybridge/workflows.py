@@ -25,6 +25,7 @@ OUT_AUTO = "auto (from workflow)"
 OUT_DATA = "data (depth / matte / normals)"
 OUT_COLOR = "color (image)"
 LIB_NONE = "(choose a workflow)"
+LIB_TYPES = ("all", "image", "video")
 EXR_LOADER = "ComfyBridgeLoadEXR"
 SLOT_TYPES = ("LoadImage", EXR_LOADER)
 MAX_SLOTS = 3
@@ -56,8 +57,20 @@ def _clean_label(text):
     return re.sub(r'[{}\[\]"\\]', "", text).strip() or "workflow"
 
 
-def scan_library(folder=WORKFLOW_DIR):
-    """{display name: path} for the workflows in the library folder."""
+def library_kind(meta):
+    """'video' (whole shot only), 'image' (one image at a time) or 'both' (a still
+    or a shot: depth, upscale...). "media" in the metadata wins; otherwise from
+    "sequence": temporal -> video, batch -> both, no -> image."""
+    media = str((meta or {}).get("media", "")).lower()
+    if media in ("image", "video", "both"):
+        return media
+    seq = str((meta or {}).get("sequence", "no")).lower()
+    return {"temporal": "video", "batch": "both"}.get(seq, "image")
+
+
+def scan_library(folder=WORKFLOW_DIR, show="all"):
+    """{display name: path} for the workflows in the library folder.
+    show: 'all', 'image' or 'video' ('both' workflows appear in image and video)."""
     out = {}
     if not os.path.isdir(folder):
         return out
@@ -68,6 +81,8 @@ def scan_library(folder=WORKFLOW_DIR):
         try:
             _, meta = load_workflow(path)
         except Exception:
+            continue
+        if show in ("image", "video") and library_kind(meta) not in (show, "both"):
             continue
         name = _clean_label(meta.get("name") or os.path.splitext(fn)[0])
         if name in out:
@@ -444,6 +459,22 @@ def pick_colorspace(candidates, available=None):
 
 _CS_SRGB = ["sRGB - Texture", "srgb_tx", "sRGB Encoded Rec.709 (sRGB)", "Output - sRGB", "sRGB"]
 _CS_LINEAR = ["Linear Rec.709 (sRGB)", "lin_rec709", "Utility - Linear - sRGB", "linear"]
+# scene-linear results in other primaries ("out_colorspace" in the metadata)
+_CS_NAMED = {"acescg": ["ACEScg", "ACES - ACEScg", "acescg", "lin_ap1", "Linear AP1"],
+             "linear_rec709": _CS_LINEAR}
+
+
+def named_colorspace(name, available):
+    """OCIO colour space for a metadata name ('acescg'), or None when the active
+    config does not have it (None also when the config cannot be listed)."""
+    cands = _CS_NAMED.get(str(name).lower(), [name])
+    if not available:
+        return None
+    low = {a.lower(): a for a in available}
+    for c in cands:
+        if c.lower() in low:
+            return low[c.lower()]
+    return None
 
 
 def match_layer(wanted, layers):
