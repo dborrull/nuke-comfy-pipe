@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0
+**LTX-2.5 on Comfy Cloud and an image / video filter.**
+- New **Matte – LTX-2.5 Alpha-Gen**: alpha of the main subject for the whole shot, no green screen (LTX-2.5 22B + Alpha-Gen IC-LoRA). Tested from Nuke: clean edges including hair, stable from frame to frame, the same result when run again.
+- New **HDR – LTX-2.5 SDR to HDR**: rebuilds clipped highlights of an SDR plate as float values above 1 (a clipped sun comes back at 15–20). Scene-linear Rec.709 result.
+- First real use of the sequence constraints: ranges padded to 8n+1 frames and images to multiples of 32 px, undone on return (10 → 17 → 10 frames, 540 → 544 → 540 px).
+- **type** selector (*all / image / video*) next to the library, and *mode* set on load: video workflows → sequence, image ones → frames, the ones that work on both (depth, upscale) follow the filter. New metadata key `"media"` (SeedVR2 is listed in both).
+- New metadata keys: `"out_colorspace"` (result already scene-linear in another space: the Read is tagged with it, the viewer transform is not undone; `linear_rec709`, `acescg`) and `"work_size"` (set on load).
+- Fix: blocking sequence mode for an image workflow no longer leaves an empty version folder.
+- **Library: 14 workflows.**
+
 ## 0.9.0
 **Sequence mode: the whole frame range in one ComfyUI job.**
 - New **mode** knob (*frames* / *sequence*) and **chunk size**. In sequence mode the rendered frames are uploaded once and the workflow's `LoadImage` becomes one `LoadImage` per frame joined with core **Batch Images** (groups of 50); a mask goes through **Batch Masks**; the aux input is sent once. Core nodes only, so it runs on Comfy Cloud. Results keep the original frame numbers and go to the usual versioned folder and Read.

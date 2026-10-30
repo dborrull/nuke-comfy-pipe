@@ -13,6 +13,8 @@ Send a plate → pick a workflow (depth, realism pass, your own…) → tweak it
 ## Features
 
 - **Bring your own workflow.** Any ComfyUI image workflow, with any model you have, runs from Nuke: export it as API JSON and drop it in the library folder. See [Your own workflows](#your-own-workflows).
+- **LTX-2.5 video models on Comfy Cloud.** Alpha matte for the whole shot without a green screen (Alpha-Gen) and SDR → HDR that rebuilds clipped highlights as float values above 1. See [LTX-2.5 workflows](#ltx-25-workflows-comfy-cloud).
+- **Image / video filter.** A *type* selector next to the library shows image workflows, video workflows or all; loading a workflow sets *mode* (frames / sequence) for you.
 - **Workflow library with parameters.** Each workflow can carry a small metadata block; its parameters (denoise, prompt, seed, model…) show up as knobs in a *Parameters* tab.
 - **Colour round-trip.** The plate is sent through the active Viewer transform (OCIO display/view, or Nuke's own LUTs) and colour results come back through the inverse, **scene-linear**, so they line up with the original (see [Colour](#colour-what-goes-out-and-what-comes-back) for the limits in the highlights). A round-trip test workflow is included in `examples/`.
 - **Multi-input (3D → AI).** A workflow can ask for up to 3 extra images — depth, a second pass, AOVs — taken from a **layer of the plate** (multichannel EXR from Blender, Maya…), from the **aux input** or from the **mask input**. Data goes as float EXR and is normalised in ComfyUI (depth from Blender distance or Nuke 1/z → near = white for depth ControlNets); colour goes through the same viewer transform as the plate.
@@ -69,8 +71,8 @@ Set `COMFY_BRIDGE_URL` to point at a ComfyUI on another machine, and `COMFY_BRID
 
 1. Select your plate and create a **ComfyBridge**.
 2. **test connection**.
-3. Pick a workflow in **library** → **load / reload**. Adjust it in the **Parameters** tab.
-4. Set the frame range (and **mode**: *frames* or *sequence*) → **Send to ComfyUI**.
+3. Pick a **type** (*image*, *video* or *all*), then a workflow in **library** → **load / reload**. Adjust it in the **Parameters** tab.
+4. Set the frame range → **Send to ComfyUI**. *mode* (frames / sequence) is set by the workflow when you load it; you can change it.
 5. A Read with the result (labelled v001, v002…) appears next to the node. With *create Read after each run* off, the node outputs the result itself (*show result in this node*).
 
 Hover any knob for its help, or press **help** next to *test connection* for a quick guide.
@@ -78,6 +80,7 @@ Hover any knob for its help, or press **help** next to *test connection* for a q
 | Knob | What it does |
 |---|---|
 | run on | *local ComfyUI* (the *server* address) or *Comfy Cloud*. |
+| type | Filter the library: *image* (one image at a time), *video* (the whole shot) or *all*. Depth and upscale workflows show in both. |
 | mode | *frames*: one job per frame (any workflow). *sequence*: the whole range in one job. See [Sequence mode](#sequence-mode). |
 | chunk size | Sequence mode, batch workflows: frames per job (0 = whole range). |
 | send exposure (stops) | Exposure applied before sending (plate and inputs marked `match_exposure`); undone on colour results. |
@@ -122,8 +125,10 @@ Every extra input is resized to the plate (or the working size).
 | Outpaint – Flux.1 Fill | half EXR, **bigger than the plate** | FLUX.1 Fill dev, clip_l, t5xxl, Flux VAE (`ae`). Non-commercial licence | yes (tested) |
 | Upscale – SeedVR2 3B Int8 | half EXR, **bigger than the plate** (x2 default) | SeedVR2 3B int8 + SeedVR2 VAE (ComfyUI native nodes). Colour correction *lab* keeps the plate grade. Use **sequence** mode on shots: less flicker | yes (tested) |
 | Upscale – RTX Video Super Resolution | half EXR, **bigger than the plate** (x2 default) | NVIDIA RTX nodes (`comfyui_nvidia_rtx_nodes`). Fast x1–x4 upscale, or denoise / deblur at the same size. Check the NVIDIA Video Effects SDK licence | **Cloud only** (tested) |
+| Matte – LTX-2.5 Alpha-Gen | float EXR, raw (matte as grey RGB) | LTX-2.5 22B distilled + Alpha-Gen IC-LoRA 0.9 (Lightricks), Gemma 4 12B encoder. Video: sequence mode | **Cloud only** (tested) |
+| HDR – LTX-2.5 SDR to HDR | half EXR, **scene-linear, values above 1** | LTX-2.5 22B distilled + SDR-to-HDR IC-LoRA (Lightricks), float32 VAE. Video: sequence mode | **Cloud only** (tested) |
 
-Every workflow in the library runs on Comfy Cloud (RTX Video Super Resolution only there). Tools (colour round-trip test, extra-input test) and alternative or experimental workflows (SDXL inpaint and realism, Qwen-Image-Edit 2509 with SAM3 mask, Qwen Image 2.1 edit, Render to photo from a float EXR depth (local, Load EXR) and its FAST variant, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
+Every workflow in the library runs on Comfy Cloud (RTX Video Super Resolution and the LTX-2.5 ones only there). Tools (colour round-trip test, extra-input test) and alternative or experimental workflows (SDXL inpaint and realism, Qwen-Image-Edit 2509 with SAM3 mask, Qwen Image 2.1 edit, Render to photo from a float EXR depth (local, Load EXR) and its FAST variant, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
 
 ## Sequence mode
 
@@ -134,10 +139,19 @@ Each workflow says how it can run (`"sequence"` in its metadata; shown under the
 | Kind | Workflows | Sequence mode |
 |---|---|---|
 | batch | Depth Anything V2 / 3, MoGe 2, RTX Video Super Resolution | One job, or split with **chunk size** (e.g. to keep Cloud jobs small). Same result as frames mode, faster on Cloud. |
-| temporal | SeedVR2 (later LTX and other video models) | The whole range in one job (chunk size is off). The model looks across frames: less flicker. |
+| temporal | SeedVR2, LTX-2.5 Alpha-Gen, LTX-2.5 SDR → HDR | The whole range in one job (chunk size is off). The model looks across frames: less flicker. |
 | no | Edit, Inpaint, Relight, Render to photo, Outpaint | Blocked with a message: these work on one image at a time. Use *frames*. |
 
 All chunks are queued at once; if one fails, ComfyBridge asks to retry just that chunk. Tested: identical PNGs give the same result in both modes (Depth Anything V2: max difference 4e-5).
+
+## LTX-2.5 workflows (Comfy Cloud)
+
+LTX-2.5 (Lightricks, 22B) is a video model; its IC-LoRAs turn it into tools that work on a whole shot. They are too big for most local GPUs, so they run on Comfy Cloud, in **sequence** mode (set when you load them). ComfyBridge pads the range to the frame count they need (8n+1, the last frame repeated) and the image to multiples of 32 px, and removes the padding when the result comes back.
+
+- **Matte – LTX-2.5 Alpha-Gen.** Alpha of the main subject for the whole shot, without a green screen (hair included). Prompt usually empty. The matte comes back as grey RGB (data): shuffle it into alpha. It picks the obvious subject; you cannot choose which one.
+- **HDR – LTX-2.5 SDR to HDR.** Rebuilds the highlights of an SDR plate: a clipped sun comes back with values of 15–20. Send the plate as you see it (viewer transform or sRGB); the result comes back **scene-linear Rec.709** (the Read is tagged linear and the viewer transform is not undone). Mid-tones come back about half a stop brighter than the plate: match them with a Grade if needed. Lightricks' fixed scene embeddings are not on Comfy Cloud, so an empty prompt replaces them.
+
+Tested from Nuke on Comfy Cloud: 10–20 frames at 960×540 take 35–60 s. The LTX-2.5 weights are under the LTX community licence (see [Model licences](#model-licences--read-before-commercial-work)).
 
 ## Comfy Cloud
 
@@ -204,6 +218,9 @@ Optional keys:
 | `"match_format": false` | Keep the result's own size (upscalers, outpaint). Default: scaled back to the plate format. |
 | `"send_exposure": false` | Generative workflow that does not keep the exposure it receives (relight, repaint): send exposure is reset to 0. |
 | `"sequence": "batch"` | Sequence mode: `batch` (frames are independent, can be chunked), `temporal` (whole range in one job), `no` (default: single image only). |
+| `"media": "both"` | Library type: `image`, `video` or `both`. Default from `sequence` (temporal → video, batch → both, no → image). |
+| `"out_colorspace": "linear_rec709"` | The result is already scene-linear in that space (`linear_rec709`, `acescg`): the Read is tagged with it and the viewer transform is not undone. |
+| `"work_size": 960` | Working size set when the workflow is loaded (heavy video models). |
 | `"frame_ratio": 2` | Output frames per input frame (frame generation: N frames → 2N-1). The Read is retimed; a message says so. |
 | `"constraints": {...}` | For video models: `"frames_rule": "8n+1"` (the last frame is repeated to fit, extra frames dropped on return), `"size_multiple": 32` (padded and cropped back), `"max_frames": 121`. With `size_multiple`, `"output_scale"` tells the crop the result's scale. |
 | `"match_exposure": true` (in an input) | That input gets the same send exposure as the plate. |
@@ -230,6 +247,7 @@ The code is MIT. **The models are not covered by it.** Some common ones are non-
 - Qwen-Image / Qwen-Image 2512 / Qwen-Image-Edit and the Lightning LoRAs — Apache 2.0. Check each ControlNet's and LoRA's own licence (InstantX Inpainting, Relight LoRA).
 - SeedVR2 (ByteDance) — Apache 2.0.
 - NVIDIA RTX Video Super Resolution — NVIDIA Video Effects SDK licence (check it before paid work).
+- LTX-2.5 and its IC-LoRAs (Lightricks) — LTX community licence: commercial use free for companies under $10M annual revenue; above that a commercial licence from Lightricks is needed. Read the full terms on the model pages.
 - Z-Image Turbo and its Fun ControlNet Union — Apache 2.0.
 - FLUX.1 dev / Fill dev / Kontext dev and FLUX.2 [klein] 9B — non-commercial. FLUX 3 Image Klein — check its licence on Hugging Face before commercial use. FLUX.2 [klein] 4B — Apache 2.0.
 - SDXL-based checkpoints — check each checkpoint's own licence.
@@ -257,10 +275,12 @@ If you try it on Linux, an issue with what worked and what didn't is very welcom
 ## Roadmap
 
 - OCIO input transform per input (colourspace, display/view, look, CDL/LUT file) and an ACEScct option.
-- LTX-2.5 on Comfy Cloud: alpha generation (matte without a green screen), SDR → HDR, restore, with tiled sampling for long and high-resolution shots.
+- More LTX-2.5 IC-LoRAs: Layout to Render (clay / blockout + look still → photoreal shot), refine / restore, and Tiled Fusion for HD and long shots.
+- Object removal in video with a mask: Wan VACE and LTX clean-plate / HDR inpainting.
+- Matte by text: SAM 3 + ViTMatte.
 - Matte refinement (SDMatte / BiRefNet).
 - Video depth with temporal consistency (DepthCrafter), batches with overlap.
-- Video models on top of sequence mode: object removal in video, LTX / Wan; Depth Anything 3 multi-view (stable depth + camera).
+- Depth Anything 3 multi-view (stable depth + camera).
 - A mode without plate (text to image), e.g. 360° panoramas to light CG.
 - Background execution.
 
