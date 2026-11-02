@@ -8,7 +8,7 @@
 
 Send a plate → pick a workflow (depth, realism pass, your own…) → tweak its parameters in Nuke → the result comes out of the node. No exporting, no browser, no 8-bit PNGs in your comp.
 
-> Status: **v0.8.3 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
+> Status: **v0.10.0 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
 
 ## Features
 
