@@ -7,3 +7,5 @@ __pycache__/
 comfy_bridge/
 .DS_Store
 Thumbs.db
+tools/.pylib/
+nuke/comfy_bridge_settings.json
