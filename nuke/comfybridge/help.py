@@ -62,6 +62,7 @@ TIPS = {
  "backend": "Where the workflow runs: your local (or LAN) ComfyUI at the server address, or Comfy Cloud (paid plan; API key in Documents/ComfyBridge/comfy_cloud_api_key.txt or the COMFY_API_KEY variable). Switching reloads the workflow, because the model lists differ.",
  "server": "Address of your ComfyUI (host:port). It can be another machine on your network. Not used with Comfy Cloud, but kept for when you switch back. Default: env COMFY_BRIDGE_URL or 127.0.0.1:8188.",
  "test": "Check that ComfyUI answers: shows its version, GPU and VRAM. On Comfy Cloud it checks the API key and shows the account.",
+ "launch": "Start the ComfyUI on this computer if it is not running (local only). Asks once (file browser) for the script that starts it (portable: run_nvidia_gpu.bat; or set COMFY_BRIDGE_LAUNCHER) and waits until it answers. It opens in its own window, outside Nuke, and keeps running when Nuke closes.",
  "help": "Quick guide to ComfyBridge.",
  "repo": "Open the project page on GitHub: documentation, updates and issues.",
  "models_info": "Models this workflow needs, checked against your ComfyUI when you load it.",
@@ -81,6 +82,8 @@ TIPS = {
  "out_dir": "Where results are written. Empty: <script folder>/comfy_bridge/<node name>.",
  "versioning": "Write each run to a new v001, v002... folder. Nothing is overwritten, so you can compare settings.",
  "match_format": "Scale the result back to the plate format.",
+ "use_input_range": "Set first / last frame to the frame range of what is connected to the plate input. The range is a fixed number, not linked to the project.",
+ "save_json": "Also save the prompt as sent (API .json) in the result folder, one per run. Drop it on ComfyUI to open that exact graph. The EXR header always keeps prompt and settings (exr/prompt, exr/comfybridge).",
  "mask_source": "Where the mask comes from: the alpha of the mask input or of the plate. Only used by workflows that take a mask.",
  "mask_channels": "alpha: the alpha goes to every channel (normal masks). rgba (as is): colour-coded masks, e.g. red = regenerate, green = take another pass.",
  "mask_grow": "Grow the mask before sending, in pixels. Gives the model room to blend.",
@@ -91,6 +94,7 @@ TIPS = {
  "auto_read": "After each run, place a standalone Read next to this node (labelled with its version; colour, exposure and format already undone).",
  "show_result": "Output the latest result from this node instead of the plate.",
  "bake": "Create a standalone Read with the current result now.",
+ "reload_params": "Set this node up as it was for a result: select its Read (or pick the EXR) and press. Workflow, ComfyBridge settings and parameters come from the EXR metadata (local ComfyUI and Comfy Cloud). A Nuke Write keeps them only with metadata 'default metadata and exr/*' or 'all metadata'.",
 }
 _SLOT_TIPS = {
  "from": "Stream this input is taken from: the plate, the aux input or the mask input.",
@@ -121,6 +125,9 @@ Tips
 - No GPU for it? Set 'run on' to Comfy Cloud (paid plan + API
   key file, see its tooltip). Workflows
   that use ComfyBridge nodes other than Save EXR stay local.
+- ComfyUI not running? 'start ComfyUI' starts the one on this
+  computer and waits until it answers.
+- Redo a result: select its Read, 'reload parameters'.
 - Hover any knob for its help.
 
 ComfyBridge by David Borrull - MIT licence

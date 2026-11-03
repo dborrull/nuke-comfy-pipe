@@ -8,7 +8,7 @@
 
 Send a plate → pick a workflow (depth, realism pass, your own…) → tweak its parameters in Nuke → the result comes out of the node. No exporting, no browser, no 8-bit PNGs in your comp.
 
-> Status: **v0.10.0 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
+> Status: **v0.11.0 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
 
 ## Features
 
@@ -24,6 +24,7 @@ Send a plate → pick a workflow (depth, realism pass, your own…) → tweak it
 - **Float EXR output.** A self-contained ComfyUI node (*Save EXR (ComfyBridge)*) writes float EXR with no extra dependencies. Data passes (depth) come back raw; images come back to linear.
 - **Sequence mode.** Send the whole frame range as **one ComfyUI job** (a batch of images) instead of one job per frame: needed by temporal / video models (SeedVR2 flickers about 40 % less this way), and faster on Comfy Cloud (RTX upscale: ~65 s instead of ~150 s for 10 frames). Batch workflows can be split in chunks; results keep the original frame numbers. See [Sequence mode](#sequence-mode).
 - **Versioned outputs.** Every run goes to a new `v001`, `v002`… folder — nothing is overwritten, so you can compare settings.
+- **Results remember how they were made.** The EXR header keeps the prompt, the workflow and the ComfyBridge settings (local and Comfy Cloud). Select a result's Read and press **reload parameters** to set the node up exactly as it was. See [Run metadata](#run-metadata).
 - **Working size.** Optionally downscale before sending (multiples of 32) and scale back on return. Handy with limited VRAM.
 - **Clean node graph.** After each run a standalone Read (labelled with its version, plus inverse colour transform and Reformat if needed) is placed next to the node. Or turn that off and the result comes out of the ComfyBridge node itself.
 - **Local ComfyUI or Comfy Cloud.** A *run on* switch sends the work to your own ComfyUI (or one on your network) or to Comfy Cloud, for models that don't fit your GPU. See [Comfy Cloud](#comfy-cloud).
@@ -70,9 +71,9 @@ Set `COMFY_BRIDGE_URL` to point at a ComfyUI on another machine, and `COMFY_BRID
 ## Usage
 
 1. Select your plate and create a **ComfyBridge**.
-2. **test connection**.
+2. **test connection**. If your local ComfyUI is not running, **start ComfyUI** starts it (it asks once for its launcher, e.g. `run_nvidia_gpu.bat`, or set `COMFY_BRIDGE_LAUNCHER`) and waits until it answers.
 3. Pick a **type** (*image*, *video* or *all*), then a workflow in **library** → **load / reload**. Adjust it in the **Parameters** tab.
-4. Set the frame range → **Send to ComfyUI**. *mode* (frames / sequence) is set by the workflow when you load it; you can change it.
+4. Set the frame range (fixed numbers, set from the input when the node is created; **use input range** sets them again) → **Send to ComfyUI**. Runs of more than 50 frames ask first. *mode* (frames / sequence) is set by the workflow when you load it; you can change it.
 5. A Read with the result (labelled v001, v002…) appears next to the node. With *create Read after each run* off, the node outputs the result itself (*show result in this node*).
 
 Hover any knob for its help, or press **help** next to *test connection* for a quick guide.
@@ -89,6 +90,8 @@ Hover any knob for its help, or press **help** next to *test connection* for a q
 | working size | Long edge in px (0 = original). |
 | new version per run | Write each run to a new `vNNN` folder. |
 | match input format | Scale the result back to the plate's format. |
+| save prompt .json next to the result | Also save the prompt as sent (API .json) in the result folder. Drop it on ComfyUI to open that graph. |
+| reload parameters | Select a result's Read (or pick the EXR): workflow, settings and parameters come back from its metadata. |
 | mask from | *mask input (alpha)* or *plate alpha*. Only used by workflows that take a mask. |
 | grow / soften | Expand and soften the mask sent to ComfyUI (gives the model room to blend). |
 | comp result over plate with mask | Output = result keymixed over the plate. Turn off to see the raw result. |
@@ -143,6 +146,15 @@ Each workflow says how it can run (`"sequence"` in its metadata; shown under the
 | no | Edit, Inpaint, Relight, Render to photo, Outpaint | Blocked with a message: these work on one image at a time. Use *frames*. |
 
 All chunks are queued at once; if one fails, ComfyBridge asks to retry just that chunk. Tested: identical PNGs give the same result in both modes (Depth Anything V2: max difference 4e-5).
+
+## Run metadata
+
+Every EXR result carries how it was made, as string attributes in its header (same keys as ComfyUI's own PNG and EXR savers): `prompt` (the API graph as run), `workflow` (the UI graph, when there is one) and `comfybridge` (node, script, workflow file, frames, parameters and ComfyBridge settings, sent by Nuke). It works with *Save EXR (ComfyBridge)* locally and with *Save Image (Advanced)* on Comfy Cloud. In Nuke they show as `exr/prompt`, `exr/comfybridge`… in a ViewMetaData.
+
+- **reload parameters** reads them back and sets the node up as it was for that result.
+- ComfyUI does not open workflows from EXR. To get the graph into ComfyUI, turn on **save prompt .json next to the result** on the Nuke node, or set the *metadata* input of *Save EXR (ComfyBridge)* to *header + json*, and drop the .json on ComfyUI.
+- A Nuke **Write** drops `exr/*` with its default *metadata* setting: use *default metadata and exr/\** or *all metadata* to keep them in renders.
+- *metadata* = *off* on the Save EXR node, or ComfyUI started with `--disable-metadata`, writes none.
 
 ## LTX-2.5 workflows (Comfy Cloud)
 
@@ -232,7 +244,7 @@ Workflows that process the whole shot at once run in [sequence mode](#sequence-m
 
 | Node | What it does |
 |---|---|
-| Save EXR (ComfyBridge) | Float/half EXR output, no dependencies. |
+| Save EXR (ComfyBridge) | Float/half EXR output, no dependencies. Writes the prompt / workflow / ComfyBridge info in the header (*metadata*: header, header + json, off). |
 | Load EXR (ComfyBridge) | Reads scanline EXR (none / ZIP compression — Nuke's defaults). Modes: *color (linear → sRGB)*, *data*, *depth: distance → 1/z*, *depth: distance normalize + invert*, *depth: Nuke 1/z*. |
 | Crop To Mask / Stitch (ComfyBridge) | Process only the masked region at the model's resolution and paste it back, optional colour match and matte. |
 | Mark Mask (ComfyBridge) | Tints the masked area for instruction-edit models. |

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0
+**Every result remembers how it was made, and a button to start ComfyUI.**
+- **Run metadata in the EXR.** *Save EXR (ComfyBridge)* now writes `prompt`, `workflow` and `comfybridge` as EXR string attributes, the same keys ComfyUI uses in PNG and core *Save Image (Advanced)* uses in EXR. Nuke sends its run info (node, script, workflow, frames, parameters, settings) as `extra_pnginfo` `comfybridge`, local and Comfy Cloud. New optional **metadata** input on the node: *header*, *header + json* (also a .json per run that ComfyUI opens on drop; ComfyUI does not read EXR), *off*. `--disable-metadata` is respected.
+- **reload parameters** (next to *bake Read*): select a result's Read (or pick the EXR) and the node is set up again as it was for that result: workflow, ComfyBridge settings and parameters. A Nuke Write keeps the metadata only with *default metadata and exr/\** or *all metadata*.
+- **start ComfyUI** (next to *test connection*): starts the ComfyUI on this computer in its own console, with a clean environment, and waits until it answers. The launcher (portable: `run_nvidia_gpu.bat`) is asked once, or set `COMFY_BRIDGE_LAUNCHER`. Local only.
+- Optional **save prompt .json next to the result**: the prompt as sent, one per run.
+- **first / last frame** are fixed numbers set from the input's range when the node is created, no longer linked to the project range (a longer project no longer sends more frames by itself). New **use input range** button. Runs of more than 50 frames ask for confirmation.
+- New knobs only appear on ComfyBridge nodes created with 0.11.0. Update the ComfyUI node too (and restart ComfyUI) for the EXR metadata.
+
 ## 0.10.0
 **LTX-2.5 on Comfy Cloud and an image / video filter.**
 - New **Matte – LTX-2.5 Alpha-Gen**: alpha of the main subject for the whole shot, no green screen (LTX-2.5 22B + Alpha-Gen IC-LoRA). Tested from Nuke: clean edges including hair, stable from frame to frame, the same result when run again.

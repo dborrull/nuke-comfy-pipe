@@ -199,8 +199,13 @@ class ComfyClient(object):
                 out.append(str(m))
         return out
 
-    def queue(self, workflow):
-        res = self._post_json("/prompt", {"prompt": workflow, "client_id": self.client_id})
+    def queue(self, workflow, info=None):
+        """info: ComfyBridge run info. It goes as extra_pnginfo 'comfybridge', which
+        the EXR / PNG savers write next to the prompt in the file's metadata."""
+        body = {"prompt": workflow, "client_id": self.client_id}
+        if info:
+            body["extra_data"] = {"extra_pnginfo": {"comfybridge": info}}
+        res = self._post_json("/prompt", body)
         if res.get("node_errors"):
             raise ComfyError("Workflow errors:\n" + json.dumps(res["node_errors"], indent=1))
         if res.get("error"):

@@ -7,7 +7,9 @@ ComfyUI-ComfyBridge
 ===================
 "Save EXR (ComfyBridge)" node: saves images as float OpenEXR without going
 through 8 bits. Self-contained EXR writer (scanline, uncompressed): only needs
-numpy, which ships with ComfyUI.
+numpy, which ships with ComfyUI. Like the core savers, it stores the prompt
+(and the UI workflow / ComfyBridge info when there is one) as EXR string
+attributes; optionally also a .json next to it that ComfyUI loads on drop.
 
 "Load EXR" node: loads a float EXR sent by ComfyBridge (depth, AOVs, linear
 passes) and turns it into an IMAGE: linear -> sRGB, raw data, or depth
@@ -21,6 +23,7 @@ Made for ComfyBridge / nuke-comfy-pipe, but works on its own.
 https://github.com/dborrull/nuke-comfy-pipe
 """
 
+import json
 import os
 import struct
 
@@ -28,7 +31,7 @@ import numpy as np
 
 import folder_paths
 
-__version__ = "0.10.0"
+__version__ = "0.11.0"
 
 
 # Minimal OpenEXR writer
@@ -40,8 +43,27 @@ def _attr(name, type_name, data):
             + struct.pack("<i", len(data)) + data)
 
 
-def write_exr(path, img, half=True):
-    """img: float array (H, W, C) with C = 1, 3 or 4 (RGB(A) order)."""
+_REQUIRED_ATTRS = ("channels", "compression", "dataWindow", "displayWindow", "lineOrder",
+                   "pixelAspectRatio", "screenWindowCenter", "screenWindowWidth")
+
+
+def metadata_attrs(prompt=None, extra_pnginfo=None):
+    """(name, text) string attributes with the same keys ComfyUI uses in PNG and in
+    Save Image (Advanced) EXR: 'prompt', 'workflow', ... ('comfybridge' from Nuke)."""
+    attrs = []
+    if prompt is not None:
+        attrs.append(("prompt", json.dumps(prompt)))
+    for key, value in (extra_pnginfo or {}).items():
+        key = str(key)
+        # short names only (no EXR long-name flag) and never a required attribute
+        if key and len(key) <= 31 and "\0" not in key and key not in _REQUIRED_ATTRS:
+            attrs.append((key, json.dumps(value)))
+    return attrs
+
+
+def write_exr(path, img, half=True, attrs=()):
+    """img: float array (H, W, C) with C = 1, 3 or 4 (RGB(A) order).
+    attrs: extra (name, text) string attributes for the header."""
     img = np.asarray(img, dtype=np.float32)
     if img.ndim == 2:
         img = img[:, :, None]
@@ -66,6 +88,8 @@ def write_exr(path, img, half=True):
     header += _attr("pixelAspectRatio", "float", struct.pack("<f", 1.0))
     header += _attr("screenWindowCenter", "v2f", struct.pack("<ff", 0.0, 0.0))
     header += _attr("screenWindowWidth", "float", struct.pack("<f", 1.0))
+    for name, text in attrs:
+        header += _attr(name, "string", text.encode("utf-8"))
     header += b"\0"
 
     # (H, C, W): each scanline = whole channel 1, then whole channel 2...
@@ -275,6 +299,18 @@ def exr_to_image(chans, mode="data (as is)", channels="auto"):
 
 
 # ComfyUI node
+METADATA_MODES = ["header", "header + json", "off"]
+
+
+def _metadata_disabled():
+    """ComfyUI started with --disable-metadata."""
+    try:
+        from comfy.cli_args import args
+        return bool(args.disable_metadata)
+    except Exception:
+        return False
+
+
 class ComfyBridgeSaveEXR(object):
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -287,7 +323,17 @@ class ComfyBridgeSaveEXR(object):
                 "filename_prefix": ("STRING", {"default": "comfy_bridge"}),
                 "transfer": (["data (as is)", "sRGB -> linear"],),
                 "precision": (["half", "float"],),
-            }
+            },
+            # optional so API workflows saved before it still validate
+            "optional": {
+                "metadata": (METADATA_MODES, {
+                    "default": METADATA_MODES[0],
+                    "tooltip": "header: prompt / workflow in the EXR header (as ComfyUI does in PNG). "
+                               "header + json: also a .json per run next to the first EXR; drop it "
+                               "on ComfyUI to get the workflow back (ComfyUI does not read EXR). "
+                               "off: nothing."}),
+            },
+            "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
 
     RETURN_TYPES = ()
@@ -296,10 +342,15 @@ class ComfyBridgeSaveEXR(object):
     CATEGORY = "ComfyBridge"
 
     def save(self, images, filename_prefix="comfy_bridge",
-             transfer="data (as is)", precision="half"):
+             transfer="data (as is)", precision="half", metadata=None,
+             prompt=None, extra_pnginfo=None):
         h, w = int(images.shape[1]), int(images.shape[2])
         full_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
             filename_prefix, self.output_dir, w, h)
+        metadata = metadata or METADATA_MODES[0]
+        attrs = []
+        if metadata != "off" and not _metadata_disabled():
+            attrs = metadata_attrs(prompt, extra_pnginfo)
         results = []
         for img in images:
             arr = img.cpu().numpy().astype(np.float32)
@@ -307,9 +358,16 @@ class ComfyBridgeSaveEXR(object):
                 arr = arr.copy()
                 arr[..., :3] = srgb_to_linear(arr[..., :3])  # alpha stays as is
             name = "%s_%05d_.exr" % (filename, counter)
-            write_exr(os.path.join(full_folder, name), arr, half=(precision == "half"))
+            write_exr(os.path.join(full_folder, name), arr, half=(precision == "half"), attrs=attrs)
             results.append({"filename": name, "subfolder": subfolder, "type": "output"})
             counter += 1
+        if attrs and metadata == "header + json" and results:
+            # the UI workflow when there is one (keeps the layout), else the API prompt
+            data = (extra_pnginfo or {}).get("workflow") or prompt
+            if data is not None:
+                side = os.path.join(full_folder, os.path.splitext(results[0]["filename"])[0] + ".json")
+                with open(side, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=1)
         # custom "exr" key: the web UI does not try to preview it
         return {"ui": {"exr": results}}
 

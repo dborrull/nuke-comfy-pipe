@@ -123,11 +123,13 @@ def _add_tooltips(text):
     return re.sub(r'addUserKnob \{(\d+) (\w+)(?: l (?:"[^"]*"|[^\s}]+))?', sub, text)
 
 
-def node_template(library_names, server):
-    return _add_tooltips(_template_text(library_names, server))
+def node_template(library_names, server, first=1, last=1):
+    """first / last: fixed numbers (the input's range when the node is created), not
+    linked to the project: a longer project must not send more frames by itself."""
+    return _add_tooltips(_template_text(library_names, server, int(first), int(last)))
 
 
-def _template_text(library_names, server):
+def _template_text(library_names, server, first, last):
     lib = " ".join(_nk_quote(n) for n in [LIB_NONE] + list(library_names))
     W = "floor(Input1.width*parent.work_size/max(Input1.width,Input1.height)/32+0.5)*32"
     H = "floor(Input1.height*parent.work_size/max(Input1.width,Input1.height)/32+0.5)*32"
@@ -143,6 +145,7 @@ Group {
  addUserKnob {1 server l server}
  server %(server)s
  addUserKnob {22 test l "test connection" -STARTLINE T %(py_test)s}
+ addUserKnob {22 launch l "start ComfyUI" -STARTLINE T %(py_launch)s}
  addUserKnob {22 help l help -STARTLINE T %(py_help)s}
  addUserKnob {26 div_wf l workflow}
  addUserKnob {4 lib_type l type M {%(lib_types)s}}
@@ -154,9 +157,10 @@ Group {
  addUserKnob {22 dl_models l "download missing models" -STARTLINE T %(py_models)s}
  addUserKnob {26 div_plate l plate}
  addUserKnob {3 first l "first frame"}
- first {{root.first_frame}}
+ first %(first)d
  addUserKnob {3 last l "last frame" -STARTLINE}
- last {{root.last_frame}}
+ last %(last)d
+ addUserKnob {22 use_input_range l "use input range" -STARTLINE T %(py_range)s}
  addUserKnob {4 mode l mode M {frames sequence}}
  addUserKnob {3 chunk_size l "chunk size" -STARTLINE}
  chunk_size 0
@@ -171,6 +175,7 @@ Group {
  versioning true
  addUserKnob {6 match_format l "match input format" +STARTLINE}
  match_format true
+ addUserKnob {6 save_json l "save prompt .json next to the result" +STARTLINE}
  addUserKnob {26 div_mask l mask}
  addUserKnob {4 mask_source l "mask from" M {"mask input" "plate"}}
  addUserKnob {4 mask_channels l send -STARTLINE M {alpha "rgba (as is)"}}
@@ -191,6 +196,7 @@ Group {
  show_result false
  addUserKnob {26 res_info l "" -STARTLINE T " "}
  addUserKnob {22 bake l "bake Read" +STARTLINE T %(py_bake)s}
+ addUserKnob {22 reload_params l "reload parameters" -STARTLINE T %(py_reload)s}
  addUserKnob {26 ver l "" +STARTLINE T "<small>ComfyBridge v%(version)s  -  by David Borrull  -  github.com/dborrull/nuke-comfy-pipe</small>"}
  addUserKnob {22 repo l "open repo" -STARTLINE T %(py_repo)s}
  addUserKnob {20 inputs_tab l Inputs}
@@ -426,8 +432,9 @@ push $N_in
 end_group
 """ % {
         "server": _nk_quote(server), "lib": lib, "lib_types": " ".join(LIB_TYPES), "W": W, "H": H, "version": __version__,
-        "py_test": _py("test_connection"), "py_load": _py("load_workflow_into"),
-        "py_run": _py("run"), "py_repo": _py("open_repo"), "py_changed": _nk_quote("import comfy_bridge; comfy_bridge.knob_changed(nuke.thisNode(), nuke.thisKnob())"), "py_bake": _py("bake_read"), "py_help": _py("show_help"), "py_models": _py("download_models"),
+        "first": first, "last": last, "py_range": _py("use_input_range"),
+        "py_test": _py("test_connection"), "py_launch": _py("launch_comfyui"), "py_load": _py("load_workflow_into"),
+        "py_run": _py("run"), "py_repo": _py("open_repo"), "py_changed": _nk_quote("import comfy_bridge; comfy_bridge.knob_changed(nuke.thisNode(), nuke.thisKnob())"), "py_bake": _py("bake_read"), "py_reload": _py("reload_parameters"), "py_help": _py("show_help"), "py_models": _py("download_models"),
         "in_viewer": _nk_quote(IN_VIEWER), "in_srgb": _nk_quote(IN_SRGB),
         "out_auto": _nk_quote(OUT_AUTO), "out_data": _nk_quote(OUT_DATA),
         "out_color": _nk_quote(OUT_COLOR),

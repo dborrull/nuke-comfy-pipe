@@ -17,13 +17,14 @@ and the comfy_bridge_workflows folder to ~/.nuke, then in ~/.nuke/menu.py:
 from comfybridge import __version__
 from comfybridge.client import ComfyClient, ComfyError
 from comfybridge.nuke_ui import (bake_read, create_node, download_models, install_menu,
-                                 knob_changed, load_workflow_into, open_repo, run, show_help,
+                                 knob_changed, launch_comfyui, load_workflow_into, open_repo, reload_parameters, run, show_help,
+                                 use_input_range,
                                  test_connection)
 from comfybridge.templates import bake_template, node_template
 from comfybridge.workflows import (build_prompt, load_workflow, match_layer, scan_library,
                                    slot_specs)
 
-__all__ = ["__version__", "ComfyClient", "ComfyError", "bake_read", "create_node", "download_models", "install_menu", "knob_changed", "open_repo",
+__all__ = ["__version__", "ComfyClient", "ComfyError", "bake_read", "create_node", "download_models", "install_menu", "knob_changed", "launch_comfyui", "open_repo", "reload_parameters", "use_input_range",
            "load_workflow_into", "run", "show_help", "test_connection", "bake_template",
            "node_template", "build_prompt", "load_workflow", "match_layer", "scan_library",
            "slot_specs"]
