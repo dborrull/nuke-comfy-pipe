@@ -8,12 +8,12 @@
 
 Send a plate → pick a workflow (depth, realism pass, your own…) → tweak its parameters in Nuke → the result comes out of the node. No exporting, no browser, no 8-bit PNGs in your comp.
 
-> Status: **v0.11.0 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
+> Status: **v0.11.1 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
 
 ## Features
 
 - **Bring your own workflow.** Any ComfyUI image workflow, with any model you have, runs from Nuke: export it as API JSON and drop it in the library folder. See [Your own workflows](#your-own-workflows).
-- **LTX-2.5 video models on Comfy Cloud.** Alpha matte for the whole shot without a green screen (Alpha-Gen) and SDR → HDR that rebuilds clipped highlights as float values above 1. See [LTX-2.5 workflows](#ltx-25-workflows-comfy-cloud).
+- **LTX-2.5 video models on Comfy Cloud.** Alpha matte for the whole shot without a green screen (Alpha-Gen), SDR → HDR that rebuilds clipped highlights as float values above 1, and Layout to Render (clay / blockout sequence + a look still → photoreal shot). See [LTX-2.5 workflows](#ltx-25-workflows-comfy-cloud).
 - **Image / video filter.** A *type* selector next to the library shows image workflows, video workflows or all; loading a workflow sets *mode* (frames / sequence) for you.
 - **Workflow library with parameters.** Each workflow can carry a small metadata block; its parameters (denoise, prompt, seed, model…) show up as knobs in a *Parameters* tab.
 - **Colour round-trip.** The plate is sent through the active Viewer transform (OCIO display/view, or Nuke's own LUTs) and colour results come back through the inverse, **scene-linear**, so they line up with the original (see [Colour](#colour-what-goes-out-and-what-comes-back) for the limits in the highlights). A round-trip test workflow is included in `examples/`.
@@ -129,7 +129,8 @@ Every extra input is resized to the plate (or the working size).
 | Upscale – SeedVR2 3B Int8 | half EXR, **bigger than the plate** (x2 default) | SeedVR2 3B int8 + SeedVR2 VAE (ComfyUI native nodes). Colour correction *lab* keeps the plate grade. Use **sequence** mode on shots: less flicker | yes (tested) |
 | Upscale – RTX Video Super Resolution | half EXR, **bigger than the plate** (x2 default) | NVIDIA RTX nodes (`comfyui_nvidia_rtx_nodes`). Fast x1–x4 upscale, or denoise / deblur at the same size. Check the NVIDIA Video Effects SDK licence | **Cloud only** (tested) |
 | Matte – LTX-2.5 Alpha-Gen | float EXR, raw (matte as grey RGB) | LTX-2.5 22B distilled + Alpha-Gen IC-LoRA 0.9 (Lightricks), Gemma 4 12B encoder. Video: sequence mode | **Cloud only** (tested) |
-| HDR – LTX-2.5 SDR to HDR | half EXR, **scene-linear, values above 1** | LTX-2.5 22B distilled + SDR-to-HDR IC-LoRA (Lightricks), float32 VAE. Video: sequence mode | **Cloud only** (tested) |
+| HDR – LTX-2.5 SDR to HDR | half EXR, **scene-linear ACEScg, values above 1** | LTX-2.5 22B distilled + SDR-to-HDR IC-LoRA (Lightricks), float32 VAE. Video: sequence mode | **Cloud only** (tested) |
+| Render – LTX-2.5 Layout to Render | half EXR, linear, **x2 the sent size** | LTX-2.5 22B distilled + Layout-to-Render IC-LoRA (Lightricks), Gemma 4 12B encoder, x2 latent upscaler. Layout sequence as plate, look still in **aux**. Video: sequence mode | **Cloud only** (tested) |
 
 Every workflow in the library runs on Comfy Cloud (RTX Video Super Resolution and the LTX-2.5 ones only there). Tools (colour round-trip test, extra-input test) and alternative or experimental workflows (SDXL inpaint and realism, Qwen-Image-Edit 2509 with SAM3 mask, Qwen Image 2.1 edit, Render to photo from a float EXR depth (local, Load EXR) and its FAST variant, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
 
@@ -142,14 +143,14 @@ Each workflow says how it can run (`"sequence"` in its metadata; shown under the
 | Kind | Workflows | Sequence mode |
 |---|---|---|
 | batch | Depth Anything V2 / 3, MoGe 2, RTX Video Super Resolution | One job, or split with **chunk size** (e.g. to keep Cloud jobs small). Same result as frames mode, faster on Cloud. |
-| temporal | SeedVR2, LTX-2.5 Alpha-Gen, LTX-2.5 SDR → HDR | The whole range in one job (chunk size is off). The model looks across frames: less flicker. |
+| temporal | SeedVR2, LTX-2.5 Alpha-Gen, LTX-2.5 SDR → HDR, LTX-2.5 Layout to Render | The whole range in one job (chunk size is off). The model looks across frames: less flicker. |
 | no | Edit, Inpaint, Relight, Render to photo, Outpaint | Blocked with a message: these work on one image at a time. Use *frames*. |
 
 All chunks are queued at once; if one fails, ComfyBridge asks to retry just that chunk. Tested: identical PNGs give the same result in both modes (Depth Anything V2: max difference 4e-5).
 
 ## Run metadata
 
-Every EXR result carries how it was made, as string attributes in its header (same keys as ComfyUI's own PNG and EXR savers): `prompt` (the API graph as run), `workflow` (the UI graph, when there is one) and `comfybridge` (node, script, workflow file, frames, parameters and ComfyBridge settings, sent by Nuke). It works with *Save EXR (ComfyBridge)* locally and with *Save Image (Advanced)* on Comfy Cloud. In Nuke they show as `exr/prompt`, `exr/comfybridge`… in a ViewMetaData.
+Every EXR result carries how it was made, as string attributes in its header (same keys as ComfyUI's own PNG and EXR savers): `prompt` (the API graph as run), `workflow` (the UI graph, when there is one) and `comfybridge` (node, script name, workflow, frames, parameters and ComfyBridge settings, sent by Nuke). No folders of your computer and no server address go in: the script is stored by its file name, a library workflow by its file name (a workflow kept outside the library by its full path, so it can be reloaded), and the server as *local* or *cloud*. It works with *Save EXR (ComfyBridge)* locally and with *Save Image (Advanced)* on Comfy Cloud. In Nuke they show as `exr/prompt`, `exr/comfybridge`… in a ViewMetaData.
 
 - **reload parameters** reads them back and sets the node up as it was for that result.
 - ComfyUI does not open workflows from EXR. To get the graph into ComfyUI, turn on **save prompt .json next to the result** on the Nuke node, or set the *metadata* input of *Save EXR (ComfyBridge)* to *header + json*, and drop the .json on ComfyUI.
@@ -161,9 +162,10 @@ Every EXR result carries how it was made, as string attributes in its header (sa
 LTX-2.5 (Lightricks, 22B) is a video model; its IC-LoRAs turn it into tools that work on a whole shot. They are too big for most local GPUs, so they run on Comfy Cloud, in **sequence** mode (set when you load them). ComfyBridge pads the range to the frame count they need (8n+1, the last frame repeated) and the image to multiples of 32 px, and removes the padding when the result comes back.
 
 - **Matte – LTX-2.5 Alpha-Gen.** Alpha of the main subject for the whole shot, without a green screen (hair included). Prompt usually empty. The matte comes back as grey RGB (data): shuffle it into alpha. It picks the obvious subject; you cannot choose which one.
-- **HDR – LTX-2.5 SDR to HDR.** Rebuilds the highlights of an SDR plate: a clipped sun comes back with values of 15–20. Send the plate as you see it (viewer transform or sRGB); the result comes back **scene-linear Rec.709** (the Read is tagged linear and the viewer transform is not undone). Mid-tones come back about half a stop brighter than the plate: match them with a Grade if needed. Lightricks' fixed scene embeddings are not on Comfy Cloud, so an empty prompt replaces them.
+- **HDR – LTX-2.5 SDR to HDR.** Rebuilds the highlights of an SDR plate: a clipped sun comes back with values of 15–20. Send the plate as you see it (viewer transform or sRGB); the result comes back **scene-linear ACEScg**, as Lightricks saves it (the Read is tagged ACEScg and the viewer transform is not undone). Mid-tones come back about half a stop brighter than the plate and colours shift warm (blues drop): match them with a Grade. Lightricks made this LoRA for its fixed scene embeddings (`ltx-2.5-22b-ic-lora-sdr-to-hdr-scene-emb`), which Comfy Cloud does not have, so an empty prompt replaces them; that is the likely cause of the colour shift. Comfy Cloud can import your own models and embeddings only on the **Creator plan or higher**; ComfyBridge does not use that file yet.
+- **Render – LTX-2.5 Layout to Render.** Turns a layout / clay / blockout sequence into a photoreal shot that keeps its camera and layout. Plate = the layout; **aux** = a look still (a frame you already made photoreal, e.g. with *Render to photo*) that gives materials, light and palette. Describe the shot in the prompt, motion and camera included. Two stages: it generates at the sent size (working size 960, set on load) and refines at x2, so the result is twice the sent size.
 
-Tested from Nuke on Comfy Cloud: 10–20 frames at 960×540 take 35–60 s. The LTX-2.5 weights are under the LTX community licence (see [Model licences](#model-licences--read-before-commercial-work)).
+Tested from Nuke on Comfy Cloud: 10–25 frames at 960×540 take 35–60 s. The LTX-2.5 weights are under the LTX community licence (see [Model licences](#model-licences--read-before-commercial-work)).
 
 ## Comfy Cloud
 
@@ -287,7 +289,7 @@ If you try it on Linux, an issue with what worked and what didn't is very welcom
 ## Roadmap
 
 - OCIO input transform per input (colourspace, display/view, look, CDL/LUT file) and an ACEScct option.
-- More LTX-2.5 IC-LoRAs: Layout to Render (clay / blockout + look still → photoreal shot), refine / restore, and Tiled Fusion for HD and long shots.
+- More LTX-2.5 IC-LoRAs: refine / restore, and Tiled Fusion for HD and long shots.
 - Object removal in video with a mask: Wan VACE and LTX clean-plate / HDR inpainting.
 - Matte by text: SAM 3 + ViTMatte.
 - Matte refinement (SDMatte / BiRefNet).

@@ -427,10 +427,13 @@ def next_version_dir(base):
 
 def parse_viewer_process(text):
     """'ACES 1.0 - SDR Video (sRGB - Display)' -> ('sRGB - Display', 'ACES 1.0 - SDR Video')
+    'ACES 2.0 - SDR 100 nits (Rec.709) (sRGB - Display)'
+                                             -> ('sRGB - Display', 'ACES 2.0 - SDR 100 nits (Rec.709)')
     'sRGB' (Nuke colour management)        -> (LUT, 'sRGB')
-    '' / 'None'                              -> None"""
+    '' / 'None'                              -> None
+    The display is the last parenthesis: ACES 2.0 view names have their own."""
     text = (text or "").strip()
-    m = re.match(r"^(.+?)\s*\((.+)\)$", text)
+    m = re.match(r"^(.+?)\s*\(([^()]+)\)$", text)
     if m:
         return m.group(2).strip(), m.group(1).strip()
     if text and text.lower() not in ("none", "raw"):
@@ -438,8 +441,29 @@ def parse_viewer_process(text):
     return None
 
 
+def parse_ocio_list(entries):
+    """nuke.getOcioColorSpaces() entries ('name	menu path		alias,alias')
+    -> names and aliases."""
+    names = []
+    for e in entries or []:
+        parts = str(e).split("	")
+        names.append(parts[0])
+        if len(parts) > 3:
+            names.extend(a.strip() for a in parts[3].split(",") if a.strip())
+    return names
+
+
 def ocio_names():
-    """Colour space names of the active OCIO config, or None if unavailable."""
+    """Colour space names (and aliases) of the script's OCIO config. None with
+    Nuke's own colour management or when they cannot be read. PyOpenColorIO's
+    current config is not the script's in Nuke 17 (it has only 'raw')."""
+    try:
+        import nuke
+        if nuke.knob("root.colorManagement") != "OCIO":
+            return None
+        return parse_ocio_list(nuke.getOcioColorSpaces()) or None
+    except Exception:
+        pass  # older Nuke: no colorManagement knob or getOcioColorSpaces
     try:
         import PyOpenColorIO as OCIO
         cfg = OCIO.GetCurrentConfig()

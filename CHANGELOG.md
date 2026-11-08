@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11.1
+**Layout to Render is back, ACES 2.0 configs work, and run metadata keeps no local folders.**
+- **Render – LTX-2.5 Layout to Render** back in the library (Comfy Cloud only): a layout / clay / blockout sequence as plate and a look still in aux give a photoreal shot that keeps the camera and layout; result at x2 the sent size. Tested from Nuke on Comfy Cloud (25 frames at 960×540). **Library: 15 workflows.**
+- **Run metadata without your folders.** The `comfybridge` info in each EXR (also sent to Comfy Cloud) now keeps the script by its file name, a library workflow by its file name (one outside the library by its full path, for *reload parameters*) and the server as *local* or *cloud*. Results made with 0.11.0 still reload.
+- Fix: *reload parameters* on a selected Read uses its first frame (outside the Read's range the confirmation showed a file that does not exist).
+- Fix: *start ComfyUI* treats `[::1]:8188` as this computer.
+- Fix: picking an unpadded `%d` sequence in *reload parameters*.
+- Fix: with an ACES 2.0 OCIO config (Nuke 17 cg / studio config v3) a run stopped with *DisplayViewTransform: empty display name*: the view names have their own parenthesis, e.g. *ACES 2.0 - SDR 100 nits (Rec.709) (sRGB - Display)*.
+- Fix: with an ACES OCIO config, *input color: sRGB* stopped with *Invalid LUT selected: sRGB* and results were read raw instead of tagged: the colour space names now come from the script's config (in Nuke 17, PyOpenColorIO's current config is not it).
+- *HDR – LTX-2.5 SDR to HDR*: the description warns about the colour shift and that Lightricks' scene embeddings are not on Comfy Cloud (importing your own files needs a Creator plan or higher).
+- Fix: *HDR – LTX-2.5 SDR to HDR* tagged its result as linear Rec.709, but the model gives ACEScg: the Read is now tagged ACEScg, so colours come in more saturated and the warm shift shows as the model gives it.
+
 ## 0.11.0
 **Every result remembers how it was made, and a button to start ComfyUI.**
 - **Run metadata in the EXR.** *Save EXR (ComfyBridge)* now writes `prompt`, `workflow` and `comfybridge` as EXR string attributes, the same keys ComfyUI uses in PNG and core *Save Image (Advanced)* uses in EXR. Nuke sends its run info (node, script, workflow, frames, parameters, settings) as `extra_pnginfo` `comfybridge`, local and Comfy Cloud. New optional **metadata** input on the node: *header*, *header + json* (also a .json per run that ComfyUI opens on drop; ComfyUI does not read EXR), *off*. `--disable-metadata` is respected.

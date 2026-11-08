@@ -16,7 +16,7 @@ try:
 except ImportError:  # lets the module be imported (and tested) outside Nuke
     nuke = None
 
-from .client import ComfyClient, ComfyError
+from .client import ComfyClient, ComfyError, is_cloud
 from .help import QUICK_HELP, REPO_URL
 from . import models as _models
 from . import sequence as _seq
@@ -27,7 +27,7 @@ from .workflows import (CB_SAVE_EXR, IN_VIEWER, LIB_NONE, LUT, library_kind, MAX
                         cast_param, find_node, load_workflow, match_layer, next_version_dir,
                         named_colorspace, ocio_names, output_images, param_specs, parse_viewer_process,
                         pick_colorspace, resolve_model_files, scan_library, slot_specs,
-                        wait_for)
+                        wait_for, WORKFLOW_DIR)
 
 
 def _log(msg):
@@ -263,7 +263,11 @@ _LOCAL_HOSTS = ("127.0.0.1", "localhost", "0.0.0.0", "::1", "[::1]")
 
 def _is_local(server):
     host = re.sub(r"^https?://", "", (server or "").strip()).split("/")[0]
-    host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    m = re.match(r"^\[([^\]]*)\](?::\d+)?$", host)   # IPv6 with a port: [::1]:8188
+    if m:
+        host = m.group(1)
+    elif host.count(":") == 1:
+        host = host.rsplit(":", 1)[0]
     return host.lower() in _LOCAL_HOSTS
 
 
@@ -768,9 +772,23 @@ def _param_values(node):
     return vals
 
 
+def _workflow_ref(path):
+    """How a workflow is named in the run info: its file name when it is in the library
+    (no folders of this computer in the file), else the full path, which 'reload
+    parameters' needs to find a workflow kept elsewhere."""
+    path = path.replace("\\", "/")
+    try:
+        in_lib = (os.path.normcase(os.path.dirname(os.path.abspath(path)))
+                  == os.path.normcase(os.path.abspath(WORKFLOW_DIR)))
+    except Exception:
+        in_lib = False
+    return os.path.basename(path) if in_lib else path
+
+
 def _run_info(node, path, meta, params, frames):
-    """What ComfyBridge stores in the result's metadata (exr/comfybridge in Nuke):
-    enough to trace a render back to its script, node, workflow and settings."""
+    """What ComfyBridge stores in the result's metadata (exr/comfybridge in Nuke) and
+    sends to the server: enough to trace a render back to its script, node, workflow
+    and settings, without the folders of this computer or the server address."""
     import time
     from . import __version__
     try:
@@ -779,9 +797,12 @@ def _run_info(node, path, meta, params, frames):
         script = ""
     if script == "Root":   # what Nuke returns for a script that was never saved
         script = ""
-    info = {"version": __version__, "node": node.fullName(), "script": script,
-            "workflow": path.replace("\\", "/"), "workflow_name": meta.get("name") or "",
-            "server": _server(node), "frames": [frames[0], frames[-1]] if frames else [],
+    server = _server(node)
+    info = {"version": __version__, "node": node.fullName(),
+            "script": os.path.basename(script.replace("\\", "/")),
+            "workflow": _workflow_ref(path), "workflow_name": meta.get("name") or "",
+            "server": "cloud" if is_cloud(server) else "local",
+            "frames": [frames[0], frames[-1]] if frames else [],
             "params": dict(("%s.%s" % k, v) for k, v in sorted(params.items())),
             "knobs": _node_settings(node),
             "time": time.strftime("%Y-%m-%dT%H:%M:%S")}
@@ -882,7 +903,7 @@ def _pick_result(node):
     for r in nuke.selectedNodes("Read"):
         if r is not node:
             try:
-                return r["file"].evaluate(), r
+                return _read_first_file(r), r
             except Exception:
                 continue
     start = node["cb_out_file"].value() if "cb_out_file" in node.knobs() else ""
@@ -893,16 +914,35 @@ def _pick_result(node):
     return _first_frame_file(path), None
 
 
+def _frame_file(pattern, frame):
+    """'name.####.exr' / 'name.%04d.exr' / 'name.%d.exr' at one frame."""
+    pattern = re.sub(r"%0(\d+)d", lambda g: "%0*d" % (int(g.group(1)), frame), pattern)
+    pattern = re.sub(r"%d", lambda g: "%d" % frame, pattern)
+    return re.sub(r"#+", lambda g: "%0*d" % (len(g.group(0)), frame), pattern)
+
+
 def _first_frame_file(path):
     """A browser pick can be a sequence ('name.####.exr 1001-1010'): its first file."""
     if os.path.isfile(path):
         return path
     m = re.match(r"^(.*?)\s+(-?\d+)(?:-(-?\d+))?$", path)
-    pattern, first = (m.group(1), int(m.group(2))) if m else (path, None)
-    if first is not None:
-        pattern = re.sub(r"%0(\d)d", lambda g: "%0*d" % (int(g.group(1)), first), pattern)
-        pattern = re.sub(r"#+", lambda g: "%0*d" % (len(g.group(0)), first), pattern)
-    return pattern
+    if not m:
+        return path
+    return _frame_file(m.group(1), int(m.group(2)))
+
+
+def _read_first_file(read):
+    """The file of a Read at its first frame (the current frame can be outside its range,
+    and then evaluate() names a file that does not exist)."""
+    pattern = read["file"].value()
+    try:
+        first = int(read["first"].value())
+    except (TypeError, ValueError):
+        first = None
+    if (first is not None and isinstance(pattern, str) and "[" not in pattern
+            and re.search(r"#|%0?\d*d", pattern)):
+        return _frame_file(pattern, first)
+    return read["file"].evaluate()   # a single file, or a path made with Tcl
 
 
 def _set_knob(k, value):
@@ -920,6 +960,9 @@ def _apply_workflow(node, info):
     path = (info.get("workflow") or "").replace("\\", "/")
     lib = scan_library()
     name = next((n for n, p in lib.items() if os.path.normcase(p) == os.path.normcase(path)), None)
+    if name is None and path and "/" not in path:   # a library workflow is stored by file name
+        name = next((n for n, p in lib.items()
+                     if os.path.normcase(os.path.basename(p)) == os.path.normcase(path)), None)
     if name is None and info.get("workflow_name") in lib:
         name = info["workflow_name"]   # the file moved but the library still has it
     if name is not None:

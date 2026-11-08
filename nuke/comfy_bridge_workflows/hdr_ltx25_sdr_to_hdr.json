@@ -2,7 +2,7 @@
   "_comfy_bridge": {
     "name": "HDR - LTX-2.5 SDR to HDR",
     "sequence": "temporal",
-    "description": "Rebuilds HDR from an SDR plate: highlights clipped at 1.0 come back with values above 1 (LTX-2.5 22B + SDR-to-HDR IC-LoRA, Lightricks). Comfy Cloud only, whole range in one job (padded to 8n+1 frames and multiples of 32 px, undone on return). Send the plate as you see it (viewer transform or sRGB): it is read as display sRGB. The result comes back scene-linear Rec.709 (Read tagged linear, viewer transform not undone). Mid-tones come back about half a stop brighter than the plate: match them with a Grade if needed. Up to 241 frames.",
+    "description": "Rebuilds HDR from an SDR plate: highlights clipped at 1.0 come back with values above 1 (LTX-2.5 22B + SDR-to-HDR IC-LoRA, Lightricks). Comfy Cloud only, whole range in one job (padded to 8n+1 frames and multiples of 32 px, undone on return). Send the plate as you see it (viewer transform or sRGB): it is read as display sRGB. The result comes back scene-linear ACEScg, as Lightricks saves it (Read tagged ACEScg, viewer transform not undone). Mid-tones come back about half a stop brighter than the plate, and colours shift warm (blues drop): match them with a Grade. Lightricks made it for its fixed scene embeddings, which Comfy Cloud does not have (an empty prompt replaces them); importing your own files to Comfy Cloud needs a Creator plan or higher. Up to 241 frames.",
     "output": "color",
     "plate_node": "1",
     "match_format": true,
@@ -71,7 +71,7 @@
       }
     ],
     "source": "ComfyBridge v0.10. Rebuilt in API format from the LTX-2.5 SDR to HDR workflow (float32 VAE, ACEScct working space, 8-step distilled sampler). Scene embeddings replaced by an empty Gemma prompt (the embeddings file is not on Comfy Cloud).",
-    "out_colorspace": "linear_rec709"
+    "out_colorspace": "acescg"
   },
   "1": {
     "class_type": "LoadImage",
