@@ -1,4 +1,4 @@
-# ComfyBridge
+![ComfyBridge: ComfyUI workflows inside Nuke](docs/comfybridge_banner.jpg)
 
 **Run ComfyUI workflows on your plates from inside Nuke** and get the result back as EXR, with the colour pipeline handled.
 
