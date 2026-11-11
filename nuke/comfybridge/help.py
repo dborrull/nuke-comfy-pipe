@@ -1,11 +1,11 @@
-# ComfyBridge (nuke-comfy-pipe) - by David Borrull
-# https://github.com/dborrull/nuke-comfy-pipe
+# ComfyBridge (nuke-comfybridge) - by David Borrull
+# https://github.com/dborrull/nuke-comfybridge
 # MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Help texts: knob tooltips, parameter tooltips and the quick guide."""
 
 from . import __version__
 
-REPO_URL = "https://github.com/dborrull/nuke-comfy-pipe"
+REPO_URL = "https://github.com/dborrull/nuke-comfybridge"
 
 PARAM_TIPS_LABEL = {
  "prompt": "What the image should be. Describe it as a photograph: place, materials, time of day, light, mood. The depth / mask keep the layout; the prompt decides the look.",
@@ -131,4 +131,4 @@ Tips
 - Hover any knob for its help.
 
 ComfyBridge by David Borrull - MIT licence
-github.com/dborrull/nuke-comfy-pipe""" % __version__
+github.com/dborrull/nuke-comfybridge""" % __version__

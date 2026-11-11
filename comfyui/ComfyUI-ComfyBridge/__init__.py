@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# ComfyBridge (nuke-comfy-pipe) - by David Borrull
-# https://github.com/dborrull/nuke-comfy-pipe
+# ComfyBridge (nuke-comfybridge) - by David Borrull
+# https://github.com/dborrull/nuke-comfybridge
 # MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """
 ComfyUI-ComfyBridge
@@ -19,8 +19,8 @@ normalised for depth ControlNets (Blender distance or Nuke 1/z).
 "Crop To Mask" / "Stitch" nodes: work on the masked region at the model's
 preferred resolution and paste the result back into the full frame.
 
-Made for ComfyBridge / nuke-comfy-pipe, but works on its own.
-https://github.com/dborrull/nuke-comfy-pipe
+Made for ComfyBridge / nuke-comfybridge, but works on its own.
+https://github.com/dborrull/nuke-comfybridge
 """
 
 import json
@@ -31,7 +31,7 @@ import numpy as np
 
 import folder_paths
 
-__version__ = "0.11.1"
+__version__ = "0.11.2"
 
 
 # Minimal OpenEXR writer
@@ -623,6 +623,9 @@ class ComfyBridgeLoadEXR(object):
         return True
 
 
+# "Export to ComfyBridge" panel (web/comfybridge_export.js)
+WEB_DIRECTORY = "./web"
+
 NODE_CLASS_MAPPINGS = {
     "ComfyBridgeMarkMask": ComfyBridgeMarkMask,
     "ComfyBridgeLoadEXR": ComfyBridgeLoadEXR,
@@ -637,3 +640,17 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ComfyBridgeCropToMask": "Crop To Mask (ComfyBridge)",
     "ComfyBridgeStitch": "Stitch (ComfyBridge)",
 }
+
+
+def _register_library_routes():
+    """Routes for "Export to ComfyBridge" (list / read / save library workflows)."""
+    if not __package__:   # loaded as a single file (tests)
+        return
+    try:
+        from .library_api import register
+        register()
+    except Exception as e:
+        print("[ComfyBridge] library routes not available: %s" % e)
+
+
+_register_library_routes()

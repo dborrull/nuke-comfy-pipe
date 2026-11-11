@@ -1,0 +1,548 @@
+{
+ "1": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "plate.png"
+  },
+  "_meta": {
+   "title": "plate"
+  }
+ },
+ "2": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "mask.png"
+  },
+  "_meta": {
+   "title": "mask"
+  }
+ },
+ "3": {
+  "class_type": "ImageToMask",
+  "inputs": {
+   "image": [
+    "2",
+    0
+   ],
+   "channel": "red"
+  },
+  "_meta": {
+   "title": "mask (white = replace)"
+  }
+ },
+ "4": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "reference.png"
+  },
+  "_meta": {
+   "title": "reference"
+  }
+ },
+ "10": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "wan2.2_fun_vace_high_noise_14B_fp8_scaled.safetensors",
+   "weight_dtype": "default"
+  },
+  "_meta": {
+   "title": "VACE high noise"
+  }
+ },
+ "11": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors",
+   "weight_dtype": "default"
+  },
+  "_meta": {
+   "title": "VACE low noise"
+  }
+ },
+ "12": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "model": [
+    "10",
+    0
+   ],
+   "strength_model": 1.0,
+   "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"
+  },
+  "_meta": {
+   "title": "lightx2v high"
+  }
+ },
+ "13": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "model": [
+    "11",
+    0
+   ],
+   "strength_model": 1.0,
+   "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"
+  },
+  "_meta": {
+   "title": "lightx2v low"
+  }
+ },
+ "14": {
+  "class_type": "ModelSamplingSD3",
+  "inputs": {
+   "model": [
+    "12",
+    0
+   ],
+   "shift": 8.0
+  }
+ },
+ "15": {
+  "class_type": "ModelSamplingSD3",
+  "inputs": {
+   "model": [
+    "13",
+    0
+   ],
+   "shift": 8.0
+  }
+ },
+ "16": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+   "type": "wan",
+   "device": "default"
+  }
+ },
+ "17": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "wan_2.1_vae.safetensors"
+  }
+ },
+ "20": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "16",
+    0
+   ],
+   "text": ""
+  },
+  "_meta": {
+   "title": "prompt"
+  }
+ },
+ "21": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "clip": [
+    "16",
+    0
+   ],
+   "text": "blurry, low quality, distorted, deformed, flicker, watermark, text"
+  },
+  "_meta": {
+   "title": "negative"
+  }
+ },
+ "30": {
+  "class_type": "ResizeImageMaskNode",
+  "inputs": {
+   "input": [
+    "1",
+    0
+   ],
+   "resize_type": "scale shorter dimension",
+   "resize_type.shorter_size": 480,
+   "scale_method": "area"
+  },
+  "_meta": {
+   "title": "work size"
+  }
+ },
+ "31": {
+  "class_type": "GetImageSize",
+  "inputs": {
+   "image": [
+    "30",
+    0
+   ]
+  }
+ },
+ "32": {
+  "class_type": "ComfyMathExpression",
+  "inputs": {
+   "expression": "max(16, round(a / 16) * 16)",
+   "values.a": [
+    "31",
+    0
+   ]
+  },
+  "_meta": {
+   "title": "width to 16"
+  }
+ },
+ "33": {
+  "class_type": "ComfyMathExpression",
+  "inputs": {
+   "expression": "max(16, round(a / 16) * 16)",
+   "values.a": [
+    "31",
+    1
+   ]
+  },
+  "_meta": {
+   "title": "height to 16"
+  }
+ },
+ "34": {
+  "class_type": "ResizeImageMaskNode",
+  "inputs": {
+   "input": [
+    "30",
+    0
+   ],
+   "resize_type": "scale dimensions",
+   "resize_type.width": [
+    "32",
+    1
+   ],
+   "resize_type.height": [
+    "33",
+    1
+   ],
+   "resize_type.crop": "disabled",
+   "scale_method": "area"
+  }
+ },
+ "35": {
+  "class_type": "ResizeImageMaskNode",
+  "inputs": {
+   "input": [
+    "3",
+    0
+   ],
+   "resize_type": "match size",
+   "resize_type.match": [
+    "34",
+    0
+   ],
+   "resize_type.crop": "disabled",
+   "scale_method": "area"
+  },
+  "_meta": {
+   "title": "mask to work size"
+  }
+ },
+ "36": {
+  "class_type": "PrimitiveInt",
+  "inputs": {
+   "value": 8
+  },
+  "_meta": {
+   "title": "mask grow"
+  }
+ },
+ "37": {
+  "class_type": "GrowMask",
+  "inputs": {
+   "mask": [
+    "35",
+    0
+   ],
+   "expand": [
+    "36",
+    0
+   ],
+   "tapered_corners": true
+  }
+ },
+ "38": {
+  "class_type": "GetImageSize",
+  "inputs": {
+   "image": [
+    "34",
+    0
+   ]
+  }
+ },
+ "39": {
+  "class_type": "EmptyImage",
+  "inputs": {
+   "width": [
+    "38",
+    0
+   ],
+   "height": [
+    "38",
+    1
+   ],
+   "batch_size": [
+    "38",
+    2
+   ],
+   "color": 8421504
+  },
+  "_meta": {
+   "title": "grey"
+  }
+ },
+ "45": {
+  "class_type": "ImageCompositeMasked",
+  "inputs": {
+   "destination": [
+    "34",
+    0
+   ],
+   "source": [
+    "39",
+    0
+   ],
+   "x": 0,
+   "y": 0,
+   "resize_source": false,
+   "mask": [
+    "37",
+    0
+   ]
+  },
+  "_meta": {
+   "title": "plate with grey hole"
+  }
+ },
+ "40": {
+  "class_type": "WanVaceToVideo",
+  "inputs": {
+   "positive": [
+    "20",
+    0
+   ],
+   "negative": [
+    "21",
+    0
+   ],
+   "vae": [
+    "17",
+    0
+   ],
+   "width": [
+    "38",
+    0
+   ],
+   "height": [
+    "38",
+    1
+   ],
+   "length": [
+    "38",
+    2
+   ],
+   "batch_size": 1,
+   "strength": 1.0,
+   "control_video": [
+    "45",
+    0
+   ],
+   "control_masks": [
+    "37",
+    0
+   ],
+   "reference_image": [
+    "4",
+    0
+   ]
+  }
+ },
+ "41": {
+  "class_type": "KSamplerAdvanced",
+  "inputs": {
+   "model": [
+    "14",
+    0
+   ],
+   "add_noise": "enable",
+   "noise_seed": 42,
+   "steps": 4,
+   "cfg": 1.0,
+   "sampler_name": "euler",
+   "scheduler": "simple",
+   "positive": [
+    "40",
+    0
+   ],
+   "negative": [
+    "40",
+    1
+   ],
+   "latent_image": [
+    "40",
+    2
+   ],
+   "start_at_step": 0,
+   "end_at_step": 2,
+   "return_with_leftover_noise": "enable"
+  },
+  "_meta": {
+   "title": "sampler high"
+  }
+ },
+ "42": {
+  "class_type": "KSamplerAdvanced",
+  "inputs": {
+   "model": [
+    "15",
+    0
+   ],
+   "add_noise": "disable",
+   "noise_seed": 42,
+   "steps": 4,
+   "cfg": 1.0,
+   "sampler_name": "euler",
+   "scheduler": "simple",
+   "positive": [
+    "40",
+    0
+   ],
+   "negative": [
+    "40",
+    1
+   ],
+   "latent_image": [
+    "41",
+    0
+   ],
+   "start_at_step": 2,
+   "end_at_step": 10000,
+   "return_with_leftover_noise": "disable"
+  },
+  "_meta": {
+   "title": "sampler low"
+  }
+ },
+ "43": {
+  "class_type": "TrimVideoLatent",
+  "inputs": {
+   "samples": [
+    "42",
+    0
+   ],
+   "trim_amount": [
+    "40",
+    3
+   ]
+  },
+  "_meta": {
+   "title": "drop the reference frame"
+  }
+ },
+ "44": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "43",
+    0
+   ],
+   "vae": [
+    "17",
+    0
+   ]
+  }
+ },
+ "9": {
+  "class_type": "ComfyBridgeSaveEXR",
+  "inputs": {
+   "images": [
+    "44",
+    0
+   ],
+   "filename_prefix": "comfy_bridge",
+   "transfer": "sRGB -> linear",
+   "precision": "half"
+  },
+  "_meta": {
+   "title": "output"
+  }
+ },
+ "_comfy_bridge": {
+  "name": "Inpaint - Wan 2.2 VACE video (replace with a reference image)",
+  "sequence": "temporal",
+  "description": "Replaces what the mask covers with the object in the reference image, over the whole shot at once (Wan 2.2 Fun VACE A14B, high + low noise, lightx2v 4 steps). Comfy Cloud only. Plate and mask (white = replace) as in the other inpaint workflows; the reference goes into the aux input and is sent once, from the first frame of the range (a still of the object, ideally on a plain background). Describe the object in the prompt too. The reference is required: for plain removal use the LTX-2.5 video inpaint. Works best when the masked object is big in frame (a car, a person): a small hole gets few pixels at work size and the reference is lost. Works at 'work size' on the short side (480 is what the model was trained for; 720 is slower), result scaled back to the plate format. Up to 81 frames per run (about 3 s at 24 fps): split longer shots. Keep 'comp result over plate with mask' on.",
+  "output": "color",
+  "plate_node": "1",
+  "mask_node": "2",
+  "inputs": [
+   {
+    "node": "4",
+    "label": "reference",
+    "from": "aux",
+    "layer": "rgba",
+    "send": "color"
+   }
+  ],
+  "match_format": true,
+  "send_exposure": false,
+  "sampler_params": false,
+  "constraints": {
+   "frames_rule": "8n+1",
+   "max_frames": 81
+  },
+  "output_scale": 1,
+  "params": [
+   {
+    "label": "prompt",
+    "node": "20",
+    "input": "text",
+    "type": "text",
+    "tooltip": "Describe the object that goes in the mask (e.g. 'a red vintage racing car')."
+   },
+   {
+    "label": "negative",
+    "node": "21",
+    "input": "text",
+    "type": "text"
+   },
+   {
+    "label": "work size",
+    "node": "30",
+    "input": "resize_type.shorter_size",
+    "type": "int",
+    "min": 256,
+    "max": 1080,
+    "tooltip": "Short side in pixels (rounded to 16). 480 is the model's native size; 720 is slower."
+   },
+   {
+    "label": "VACE strength",
+    "node": "40",
+    "input": "strength",
+    "type": "float",
+    "min": 0,
+    "max": 2,
+    "tooltip": "How strongly the plate around the mask and the reference steer the result (1 = default)."
+   },
+   {
+    "label": "mask grow",
+    "node": "36",
+    "input": "value",
+    "type": "int",
+    "min": 0,
+    "max": 64,
+    "tooltip": "Extra dilation in ComfyUI, in work-size pixels."
+   },
+   {
+    "label": "seed",
+    "node": "41",
+    "input": "noise_seed",
+    "type": "int",
+    "also": [
+     [
+      "42",
+      "noise_seed"
+     ]
+    ]
+   }
+  ],
+  "source": "Built for ComfyBridge from the Wan 2.2 Fun VACE inpaint recipe (core WanVaceToVideo, two-stage high / low noise sampling with the lightx2v 4-step LoRAs), after David's ER_Change_Car workflow (Kijai WanVideoWrapper + SAM3). The mask comes from Nuke, so SAM3 is left out."
+ }
+}

@@ -1,0 +1,72 @@
+{
+ "_about": "Keys of the _comfy_bridge block of a ComfyBridge workflow (API JSON). Read by Nuke to check workflows on load and by the ComfyUI exporter to build them. Types: string, text, bool, int, number, enum (values), node (an id of the workflow, of one of the classes), object (keys), list (item, max), pair (a [node, input] list), any. 'default' is what ComfyBridge uses when the key is missing.",
+ "version": 1,
+ "keys": {
+  "name": {"type": "string", "doc": "Name in the library list. Default: the file name."},
+  "description": {"type": "text", "doc": "Shown under the library. Simple HTML is fine."},
+  "source": {"type": "text", "doc": "Where the workflow comes from (credits, licence). Not used by Nuke."},
+  "output": {"type": "enum", "values": ["color", "data"], "default": "data",
+             "doc": "color: an image, back through the inverse viewer transform. data: depth / matte / normals, back raw."},
+  "sequence": {"type": "enum", "values": ["no", "batch", "temporal"], "default": "no",
+               "doc": "no: one image at a time. batch: frames are independent (can be chunked). temporal: the whole range in one job."},
+  "media": {"type": "enum", "values": ["image", "video", "both"],
+            "doc": "Library type. Default from sequence: temporal -> video, batch -> both, no -> image."},
+  "plate_node": {"type": "node", "classes": ["LoadImage"],
+                 "doc": "LoadImage that receives the plate. Default: the first LoadImage that is not the mask or an extra input."},
+  "mask_node": {"type": "node", "classes": ["LoadImage"], "doc": "LoadImage that receives the mask."},
+  "save_node": {"type": "node", "classes": ["ComfyBridgeSaveEXR", "SaveImageAdvanced", "SaveImage", "PreviewImage"],
+                "doc": "Node the result is taken from. Default: the first save / preview node."},
+  "mask_channels": {"type": "enum", "values": ["alpha", "rgba"], "default": "alpha",
+                    "doc": "alpha: the mask alpha in all channels. rgba: the mask input as it is."},
+  "matte": {"type": "bool", "default": false, "doc": "The result's alpha is a matte: output it as alpha."},
+  "match_format": {"type": "bool", "default": true,
+                   "doc": "Scale the result back to the plate format. false: keep its own size (upscalers, outpaint)."},
+  "send_exposure": {"type": "bool", "default": true,
+                    "doc": "false: generative workflow that does not keep the exposure it gets; send exposure is reset to 0."},
+  "sampler_params": {"type": "bool", "default": true,
+                     "doc": "Also show the KSampler inputs (seed, steps, cfg, sampler, scheduler, denoise) as knobs."},
+  "work_size": {"type": "int", "min": 64, "doc": "Working size set when the workflow is loaded (heavy video models)."},
+  "output_scale": {"type": "number", "min": 0.01, "default": 1,
+                   "doc": "Scale of the result against what was sent (used with constraints.size_multiple)."},
+  "frame_ratio": {"type": "number", "min": 0.01, "default": 1,
+                  "doc": "Output frames per input frame (frame generation: N -> 2N-1)."},
+  "out_colorspace": {"type": "enum", "values": ["acescg", "linear_rec709"],
+                     "doc": "The result is already scene-linear in this space: the Read is tagged with it."},
+  "constraints": {"type": "object", "doc": "For video models.", "keys": {
+   "frames_rule": {"type": "enum", "values": ["8n+1"], "doc": "The last frame is repeated to fit, extra frames dropped on return."},
+   "size_multiple": {"type": "int", "min": 1, "doc": "Padded to this multiple and cropped back."},
+   "max_frames": {"type": "int", "min": 1, "doc": "Most frames in one job (temporal)."}
+  }},
+  "inputs": {"type": "list", "max": 3, "doc": "Extra images.", "item": {"type": "object", "keys": {
+   "node": {"type": "node", "classes": ["LoadImage", "ComfyBridgeLoadEXR"], "required": true,
+            "doc": "A LoadImage gets an 8-bit PNG, a Load EXR (ComfyBridge) a float EXR."},
+   "label": {"type": "string", "doc": "Name shown in the Inputs tab."},
+   "from": {"type": "enum", "values": ["plate", "aux", "mask"], "default": "plate", "doc": "Which Nuke input it comes from."},
+   "layer": {"type": "string", "default": "rgba", "doc": "Layer of that input (depth, a render pass...)."},
+   "mono": {"type": "bool", "default": false, "doc": "Red in all channels."},
+   "send": {"type": "enum", "values": ["color", "data"], "default": "color",
+            "doc": "color: through the viewer transform like the plate. data: raw."},
+   "match_exposure": {"type": "bool", "default": false, "doc": "Gets the same send exposure as the plate."}
+  }}},
+  "params": {"type": "list", "doc": "Inputs of the workflow shown as knobs in Parameters.", "item": {"type": "object", "keys": {
+   "node": {"type": "node", "required": true},
+   "input": {"type": "string", "required": true, "doc": "Input name of that node (dynamic inputs with a dot, e.g. resize_type.width)."},
+   "label": {"type": "string", "doc": "Knob label. Default: the input name."},
+   "type": {"type": "enum", "values": ["bool", "int", "float", "string", "text"],
+            "doc": "Default from the current value. text: multi-line (prompts)."},
+   "min": {"type": "number"},
+   "max": {"type": "number"},
+   "options": {"type": "list", "item": {"type": "any"}, "doc": "Fixed choices (a dropdown). Model inputs get the server's list anyway."},
+   "default": {"type": "any", "doc": "Default value. Default: the value in the workflow."},
+   "tooltip": {"type": "text"},
+   "also": {"type": "list", "item": {"type": "pair"}, "doc": "More [node, input] pairs that get the same value."}
+  }}},
+  "models": {"type": "list", "doc": "Model files to add to (or correct in) the download list.", "item": {"type": "object", "keys": {
+   "file": {"type": "string", "required": true},
+   "folder": {"type": "string", "doc": "ComfyUI models subfolder."},
+   "url": {"type": "string", "doc": "Direct download."},
+   "page": {"type": "string", "doc": "Manual download page."},
+   "licence": {"type": "string"}
+  }}}
+ }
+}

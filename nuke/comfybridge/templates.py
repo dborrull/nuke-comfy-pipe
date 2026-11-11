@@ -1,5 +1,5 @@
-# ComfyBridge (nuke-comfy-pipe) - by David Borrull
-# https://github.com/dborrull/nuke-comfy-pipe
+# ComfyBridge (nuke-comfybridge) - by David Borrull
+# https://github.com/dborrull/nuke-comfybridge
 # MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """.nk templates: pasting them creates nodes without Python Node objects
 (Nuke Non-commercial lets Python touch only 10 per session)."""
@@ -197,7 +197,7 @@ Group {
  addUserKnob {26 res_info l "" -STARTLINE T " "}
  addUserKnob {22 bake l "bake Read" +STARTLINE T %(py_bake)s}
  addUserKnob {22 reload_params l "reload parameters" -STARTLINE T %(py_reload)s}
- addUserKnob {26 ver l "" +STARTLINE T "<small>ComfyBridge v%(version)s  -  by David Borrull  -  github.com/dborrull/nuke-comfy-pipe</small>"}
+ addUserKnob {26 ver l "" +STARTLINE T "<small>ComfyBridge v%(version)s  -  by David Borrull  -  github.com/dborrull/nuke-comfybridge</small>"}
  addUserKnob {22 repo l "open repo" -STARTLINE T %(py_repo)s}
  addUserKnob {20 inputs_tab l Inputs}
  addUserKnob {26 inputs_info l "" +STARTLINE T "<i>Extra images for the workflow (depth, a second pass, AOVs).<br>Take them from a layer of the plate, the aux input or the mask input.</i>"}

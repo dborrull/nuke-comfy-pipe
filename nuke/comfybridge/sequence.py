@@ -1,5 +1,5 @@
-# ComfyBridge (nuke-comfy-pipe) - by David Borrull
-# https://github.com/dborrull/nuke-comfy-pipe
+# ComfyBridge (nuke-comfybridge) - by David Borrull
+# https://github.com/dborrull/nuke-comfybridge
 # MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Sequence mode: a frame range as ONE ComfyUI job (or a few chunks).
 

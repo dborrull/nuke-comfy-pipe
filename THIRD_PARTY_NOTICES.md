@@ -1,6 +1,6 @@
 # Third-party notices
 
-nuke-comfy-pipe is MIT licensed (see LICENSE). It builds on the work below.
+nuke-comfybridge is MIT licensed (see LICENSE). It builds on the work below.
 The **models** these workflows load are not covered by any of these licences:
 each model has its own (see "Model licences" in README.md).
 

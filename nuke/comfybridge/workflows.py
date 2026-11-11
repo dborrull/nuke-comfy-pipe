@@ -1,5 +1,5 @@
-# ComfyBridge (nuke-comfy-pipe) - by David Borrull
-# https://github.com/dborrull/nuke-comfy-pipe
+# ComfyBridge (nuke-comfybridge) - by David Borrull
+# https://github.com/dborrull/nuke-comfybridge
 # MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Workflows, metadata and colour helpers (no Nuke dependency)."""
 
@@ -68,14 +68,30 @@ def library_kind(meta):
     return {"temporal": "video", "batch": "both"}.get(seq, "image")
 
 
-def scan_library(folder=WORKFLOW_DIR, show="all"):
+DISABLED_FILE = "_disabled.json"
+
+
+def disabled_workflows(folder=WORKFLOW_DIR):
+    """File names switched off in the library (_disabled.json, set from ComfyUI's
+    Export to ComfyBridge). They stay out of the pulldown but still load."""
+    try:
+        with open(os.path.join(folder, DISABLED_FILE), "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return set(str(n) for n in data.get("disabled", []))
+    except (OSError, ValueError, AttributeError, TypeError):
+        return set()
+
+
+def scan_library(folder=WORKFLOW_DIR, show="all", disabled=False):
     """{display name: path} for the workflows in the library folder.
-    show: 'all', 'image' or 'video' ('both' workflows appear in image and video)."""
+    show: 'all', 'image' or 'video' ('both' workflows appear in image and video).
+    disabled: also list the ones switched off (to find the workflow of a node or result)."""
     out = {}
     if not os.path.isdir(folder):
         return out
+    off = set() if disabled else disabled_workflows(folder)
     for fn in sorted(os.listdir(folder)):
-        if not fn.lower().endswith(".json"):
+        if not fn.lower().endswith(".json") or fn.startswith("_") or fn in off:
             continue
         path = os.path.join(folder, fn)
         try:

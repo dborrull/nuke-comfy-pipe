@@ -1,5 +1,5 @@
-# ComfyBridge (nuke-comfy-pipe) - by David Borrull
-# https://github.com/dborrull/nuke-comfy-pipe
+# ComfyBridge (nuke-comfybridge) - by David Borrull
+# https://github.com/dborrull/nuke-comfybridge
 # MIT License - Copyright (c) 2026 David Borrull. See LICENSE.
 """Nuke side. Every entry point receives the ComfyBridge node from its button
 (nuke.thisNode()) and never asks Python for any other Node object: internal
@@ -18,6 +18,7 @@ except ImportError:  # lets the module be imported (and tested) outside Nuke
 
 from .client import ComfyClient, ComfyError, is_cloud
 from .help import QUICK_HELP, REPO_URL
+from .meta_check import check_meta
 from . import models as _models
 from . import sequence as _seq
 from .templates import bake_template, node_template
@@ -396,7 +397,7 @@ def launch_comfyui(node, wait=180):
 
 def load_workflow_into(node, force=True):
     """Read the chosen workflow, show its description and build its parameter knobs."""
-    lib = scan_library()
+    lib = scan_library(disabled=True)   # a node set to a workflow switched off later still loads it
     choice = node["library"].value()
     if choice in lib:  # the library wins; pick "(choose a workflow)" to use a custom file
         node["workflow"].setValue(lib[choice])
@@ -416,6 +417,16 @@ def load_workflow_into(node, force=True):
     out = meta.get("output")
     if out in ("data", "color"):
         desc += "<br><small>output: %s</small>" % out
+    try:
+        problems = check_meta(wf, meta)
+    except Exception as e:   # never block a load on the check itself
+        problems = []
+        _log("could not check the workflow metadata: %s" % e)
+    for p in problems:
+        _log("workflow metadata: " + p)
+    if problems:
+        desc += ("<br><small><b>metadata: %d problem(s), see the Script Editor</b></small>"
+                 % len(problems))
     node["wf_desc"].setValue("<i>%s</i>" % desc if desc else " ")
     # each workflow sets it: upscalers / outpaint keep their bigger size
     node["match_format"].setValue(bool(meta.get("match_format", True)))
@@ -958,7 +969,7 @@ def _apply_workflow(node, info):
     """Point the node at the workflow of the result: its library entry when it is
     there, else the file itself. Returns the path, or raises."""
     path = (info.get("workflow") or "").replace("\\", "/")
-    lib = scan_library()
+    lib = scan_library(disabled=True)
     name = next((n for n, p in lib.items() if os.path.normcase(p) == os.path.normcase(path)), None)
     if name is None and path and "/" not in path:   # a library workflow is stored by file name
         name = next((n for n, p in lib.items()
@@ -1096,7 +1107,8 @@ def _run(node):
     taken = set([mask_id] + [sl["node"] for sl in slots])
     load_id = find_node(wf, (node["load_id"].value() or str(meta.get("plate_node") or "")).strip(),
                         ("LoadImage",), exclude=taken)
-    save_id = find_node(wf, (node["save_id"].value() or "").strip(), SAVE_TYPES)
+    save_id = find_node(wf, (node["save_id"].value() or str(meta.get("save_node") or "")).strip(),
+                        SAVE_TYPES)
     params = _param_values(node)
     for (nid, inp), val in sorted(params.items()):  # what is really sent (Script Editor)
         _log("param %s.%s = %s" % (nid, inp, (str(val)[:80] + "...") if len(str(val)) > 80 else val))

@@ -2,13 +2,13 @@
 
 **Run ComfyUI workflows on your plates from inside Nuke** and get the result back as EXR, with the colour pipeline handled.
 
-*By David Borrull, VFX compositor. Repository: `nuke-comfy-pipe`.*
+*By David Borrull, VFX compositor. Repository: `nuke-comfybridge`.*
 
 ![ComfyBridge in Nuke: the node panel on the right, and in the viewer a wipe between two versions of the same shot generated from it](docs/comfybridge_nuke.jpg)
 
 Send a plate → pick a workflow (depth, realism pass, your own…) → tweak its parameters in Nuke → the result comes out of the node. No exporting, no browser, no 8-bit PNGs in your comp.
 
-> Status: **v0.11.1 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
+> Status: **v0.11.2 — early, but working.** **Tested on Windows** (Nuke 17.1 Non-commercial, ComfyUI 0.38 portable, 8 GB GPU). **Linux not tested yet** (see [Linux](#linux)). The Comfy Cloud backend is new and has had little real-world use yet.
 
 ## Features
 
@@ -52,6 +52,10 @@ You don't need to hunt for model files. When you load a workflow, the node shows
 The list of known models lives in `nuke/comfybridge/models_catalog.json`; add your own entries there or in a workflow's metadata (`"models": [{"file": ..., "folder": ..., "url": ...}]`).
 
 ## Install
+
+**Windows, one click:** unzip and double-click **`install.bat`**. It copies ComfyBridge into `%USERPROFILE%\.nuke`, adds it to `menu.py`, and asks for your ComfyUI folder (e.g. `C:\ComfyUI`) to copy the ComfyUI nodes; press Enter to skip that if you only use Comfy Cloud. It downloads nothing, and running it again updates the install (your own workflows, settings and icons are kept). Then restart Nuke and ComfyUI. **`uninstall.bat`** undoes it; it keeps the workflow library unless you say so.
+
+By hand (Mac, Linux, or a custom setup):
 
 **ComfyUI** (local only — not needed if you only use Comfy Cloud)
 1. Copy `comfyui/ComfyUI-ComfyBridge` to `ComfyUI/custom_nodes/`.
@@ -130,6 +134,8 @@ Every extra input is resized to the plate (or the working size).
 | Upscale – RTX Video Super Resolution | half EXR, **bigger than the plate** (x2 default) | NVIDIA RTX nodes (`comfyui_nvidia_rtx_nodes`). Fast x1–x4 upscale, or denoise / deblur at the same size. Check the NVIDIA Video Effects SDK licence | **Cloud only** (tested) |
 | Matte – LTX-2.5 Alpha-Gen | float EXR, raw (matte as grey RGB) | LTX-2.5 22B distilled + Alpha-Gen IC-LoRA 0.9 (Lightricks), Gemma 4 12B encoder. Video: sequence mode | **Cloud only** (tested) |
 | HDR – LTX-2.5 SDR to HDR | half EXR, **scene-linear ACEScg, values above 1** | LTX-2.5 22B distilled + SDR-to-HDR IC-LoRA (Lightricks), float32 VAE. Video: sequence mode | **Cloud only** (tested) |
+| Inpaint – LTX-2.5 video (remove / replace) | half EXR, **scene-linear ACEScg**, comped over plate | LTX-2.5 22B distilled + in/outpainting IC-LoRA 0.9 (Lightricks), Gemma 4 12B encoder, float32 VAE. Plate + **mask**, two passes (half size, then x2 refine). Empty prompt removes. Video: sequence mode | **Cloud only** (tested) |
+| Inpaint – Wan 2.2 VACE video (replace with a reference image) | half EXR, sRGB → linear, comped over plate | Wan 2.2 Fun VACE A14B high + low noise (fp8), lightx2v 4-step LoRAs, umt5 encoder. Plate + **mask** + reference still in **aux**. Up to 81 frames. Video: sequence mode | **Cloud only** (tested) |
 | Render – LTX-2.5 Layout to Render | half EXR, linear, **x2 the sent size** | LTX-2.5 22B distilled + Layout-to-Render IC-LoRA (Lightricks), Gemma 4 12B encoder, x2 latent upscaler. Layout sequence as plate, look still in **aux**. Video: sequence mode | **Cloud only** (tested) |
 
 Every workflow in the library runs on Comfy Cloud (RTX Video Super Resolution and the LTX-2.5 ones only there). Tools (colour round-trip test, extra-input test) and alternative or experimental workflows (SDXL inpaint and realism, Qwen-Image-Edit 2509 with SAM3 mask, Qwen Image 2.1 edit, Render to photo from a float EXR depth (local, Load EXR) and its FAST variant, edges, style reference, mix passes) are in [`examples/`](examples/README.md).
@@ -192,6 +198,10 @@ With a local ComfyUI and the ComfyBridge nodes installed, `examples/` has a vers
 
 Masked workflows declare `"mask_node"` in their metadata. ComfyBridge renders the mask (from the mask input or the plate alpha, grown and softened, scaled to the plate format) as a second image. **Inpaint – Qwen-Image InstantX** works on the whole frame at its *work size*; back in Nuke the result is keymixed over the plate with the feathered mask.
 
+**Inpaint – LTX-2.5 video** fills the mask over the whole shot in one job (sequence mode), so the fill does not flicker. Send the plate with *input color* sRGB: the result comes back scene-linear ACEScg. The model repaints a wide halo around the mask (about 150 px at 1080p), so keep *comp result over plate with mask* on. *work size* (short side, default 1024 as in the original graph) sets quality and Cloud cost.
+
+**Inpaint – Wan 2.2 VACE video (reference)** puts a specific object in the mask: a still of it goes into the aux input (sent once, from the first frame of the range; a FrameHold or a Read of a photo both work) and the prompt describes it. Up to 81 frames per run, at *work size* 480 (the model's own size), scaled back to the plate format. It works best on a big object (a car, a person): a small hole gets few pixels at 480 and the reference is lost. For plain removal use the LTX-2.5 one.
+
 With a local ComfyUI, the ComfyBridge nodes **Crop To Mask** → model → **Stitch** process only the masked region plus some context at the model's resolution (used by the SDXL inpaint and Qwen-Image-Edit 2509 examples). They are not on Comfy Cloud.
 
 Prompting tips: for **inpaint** describe what *should* be there ("old brick wall"), not what to remove. For the **Edit** workflows (Qwen-Image-Edit, FLUX 3 Klein) write an instruction ("remove the cable and continue the wall").
@@ -228,6 +238,7 @@ Optional keys:
 | `"mask_node": "11"` | LoadImage that receives the mask. |
 | `"mask_channels": "rgba"` | Send the mask as RGBA (default: alpha in all channels). |
 | `"plate_node": "1"` | LoadImage that receives the plate (default: the first LoadImage that is not the mask or an extra input). |
+| `"save_node": "9"` | Node the result is taken from (default: the first save / preview node, so a `PreviewImage` with a lower id would win). |
 | `"matte": true` | The result's alpha is a matte: output it as alpha. |
 | `"match_format": false` | Keep the result's own size (upscalers, outpaint). Default: scaled back to the plate format. |
 | `"send_exposure": false` | Generative workflow that does not keep the exposure it receives (relight, repaint): send exposure is reset to 0. |
@@ -240,6 +251,21 @@ Optional keys:
 | `"match_exposure": true` (in an input) | That input gets the same send exposure as the plate. |
 | `"inputs": [...]` | Extra images, up to 3: `{"node": "2", "label": "depth", "from": "plate", "layer": "depth", "mono": true, "send": "data"}`. `from`: `plate` / `aux` / `mask`. A `LoadImage` receives an 8-bit PNG; a **Load EXR (ComfyBridge)** receives a float EXR. |
 
+Every key, its type and default is listed in [`nuke/comfybridge/meta_schema.json`](nuke/comfybridge/meta_schema.json). On **load / reload** the block is checked against it: a typo in a key, a wrong value or a node id that does not exist is reported in the Script Editor (and counted under the description). The workflow still loads.
+
+### Export to ComfyBridge (from ComfyUI)
+
+Or skip the JSON by hand: with the ComfyBridge package installed in ComfyUI (restart ComfyUI once after installing it), build the workflow in ComfyUI and:
+
+1. Right-click a node › **ComfyBridge**: on a `LoadImage`, **Plate**, **Mask** or **Extra input**; on a save / preview node, **Result from this node**; on any node, **Knob in Nuke: <widget>** for each value you want in *Parameters* (click again to remove it). A ✓ marks what is set.
+2. Right-click the canvas (or the **ComfyBridge** menu) › **Export to ComfyBridge...**: file name, name, description, *output* (set it to **color** for an image), *sequence*; extra inputs and knobs get a label, type, range and tooltip there; the rest of the keys are under *More settings*.
+3. **Check** runs the same metadata check as Nuke; **Save to library** writes the API workflow with its `_comfy_bridge` block straight into the library (asks before overwriting, the old file is kept as `.bak`).
+4. In Nuke, **load / reload**.
+
+To change a library workflow, pick it in *open a library workflow to edit...*: it opens in a new tab with its roles and knobs set, ready to change and save again. Muted or bypassed nodes, and knobs on an input fed by a link, are left out (the dialog says which). Roles and settings are kept in the UI workflow, so saving it in ComfyUI keeps them for the next export.
+
+**Workflows in Nuke (on / off)**, under the same selector, switches library workflows on or off in Nuke's *library* pulldown (then **load / reload**, or a new node). Nothing is deleted: the list is kept in `comfy_bridge_workflows/_disabled.json`, updates leave it alone, and a node or a result that already uses a switched-off workflow still loads it.
+
 Workflows that process the whole shot at once run in [sequence mode](#sequence-mode). More workflows (tools and experiments) are in [`examples/`](examples/README.md).
 
 ## ComfyUI nodes
@@ -250,6 +276,8 @@ Workflows that process the whole shot at once run in [sequence mode](#sequence-m
 | Load EXR (ComfyBridge) | Reads scanline EXR (none / ZIP compression — Nuke's defaults). Modes: *color (linear → sRGB)*, *data*, *depth: distance → 1/z*, *depth: distance normalize + invert*, *depth: Nuke 1/z*. |
 | Crop To Mask / Stitch (ComfyBridge) | Process only the masked region at the model's resolution and paste it back, optional colour match and matte. |
 | Mark Mask (ComfyBridge) | Tints the masked area for instruction-edit models. |
+
+The package also adds [Export to ComfyBridge](#export-to-comfybridge-from-comfyui) (node menu + dialog) and the server routes behind it (`/comfybridge/library`, `/comfybridge/schema`, `/comfybridge/check`, `/comfybridge/enabled`) that list, read, check, save and switch on / off workflows in the ComfyBridge library (`COMFY_BRIDGE_WORKFLOWS`, else `~/.nuke/comfy_bridge_workflows`): only `.json` files inside that folder, an overwritten file is kept as `.bak`.
 
 ## Model licences — read before commercial work
 
@@ -290,7 +318,7 @@ If you try it on Linux, an issue with what worked and what didn't is very welcom
 
 - OCIO input transform per input (colourspace, display/view, look, CDL/LUT file) and an ACEScct option.
 - More LTX-2.5 IC-LoRAs: refine / restore, and Tiled Fusion for HD and long shots.
-- Object removal in video with a mask: Wan VACE and LTX clean-plate / HDR inpainting.
+- Object removal in video with a mask on local GPUs (MiniMax-Remover / Wan VACE 1.3B).
 - Matte by text: SAM 3 + ViTMatte.
 - Matte refinement (SDMatte / BiRefNet).
 - Video depth with temporal consistency (DepthCrafter), batches with overlap.
@@ -304,6 +332,7 @@ Full notices, including adapted ComfyUI templates: [THIRD_PARTY_NOTICES.md](THIR
 
 - Display/view colour round-trip and workflow metadata ideas: [nuke-comfyui-bridge](https://github.com/Mariolepipe/nuke-comfyui-bridge) by Mario Falco (MIT).
 - Round-trip test and auto-versioning ideas: [comfyui-exr-plate](https://github.com/Samuelsujan/comfyui-exr-plate) (MIT).
+- Launching ComfyUI outside Nuke's process (so torch's DLLs do not clash with Nuke's) and the one-click `install.bat` / `uninstall.bat`: ideas from [ComfyUI-Nuke-Bridge](https://github.com/gabinvidal/ComfyUI-Nuke-Bridge) by Gabin Vidal (MIT).
 
 ## How it was made
 
