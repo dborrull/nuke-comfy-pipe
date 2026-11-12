@@ -2,7 +2,7 @@
 
 **Run ComfyUI workflows on your plates from inside Nuke** and get the result back as EXR, with the colour pipeline handled.
 
-*By David Borrull, VFX compositor. Repository: `nuke-comfybridge`.*
+*By David Borrull, VFX compositor. Repository: `nuke-comfybridge`. Also on [Nukepedia](https://www.nukepedia.com/tools/python/render/comfybridge/).*
 
 ![ComfyBridge in Nuke: the node panel on the right, and in the viewer a wipe between two versions of the same shot generated from it](docs/comfybridge_nuke.jpg)
 
@@ -12,7 +12,7 @@ Send a plate → pick a workflow (depth, realism pass, your own…) → tweak it
 
 ## Features
 
-- **Bring your own workflow.** Any ComfyUI image workflow, with any model you have, runs from Nuke: export it as API JSON and drop it in the library folder. See [Your own workflows](#your-own-workflows).
+- **Bring your own workflow.** Any ComfyUI image workflow, with any model you have, runs from Nuke. Mark its plate, mask and knobs straight in ComfyUI (right-click a node › *ComfyBridge*) and press **Export to ComfyBridge**: it lands in the library, ready to load in Nuke; switch library workflows on or off from there too. Or export it as API JSON by hand. See [Export to ComfyBridge](#export-to-comfybridge-from-comfyui).
 - **LTX-2.5 video models on Comfy Cloud.** Alpha matte for the whole shot without a green screen (Alpha-Gen), SDR → HDR that rebuilds clipped highlights as float values above 1, and Layout to Render (clay / blockout sequence + a look still → photoreal shot). See [LTX-2.5 workflows](#ltx-25-workflows-comfy-cloud).
 - **Image / video filter.** A *type* selector next to the library shows image workflows, video workflows or all; loading a workflow sets *mode* (frames / sequence) for you.
 - **Workflow library with parameters.** Each workflow can carry a small metadata block; its parameters (denoise, prompt, seed, model…) show up as knobs in a *Parameters* tab.
@@ -261,6 +261,8 @@ Or skip the JSON by hand: with the ComfyBridge package installed in ComfyUI (res
 2. Right-click the canvas (or the **ComfyBridge** menu) › **Export to ComfyBridge...**: file name, name, description, *output* (set it to **color** for an image), *sequence*; extra inputs and knobs get a label, type, range and tooltip there; the rest of the keys are under *More settings*.
 3. **Check** runs the same metadata check as Nuke; **Save to library** writes the API workflow with its `_comfy_bridge` block straight into the library (asks before overwriting, the old file is kept as `.bak`).
 4. In Nuke, **load / reload**.
+
+![Export to ComfyBridge in ComfyUI: the Relight workflow opened from the library, with its plate and three knobs (prompt, LoRA strength, model) set up for Nuke](docs/comfybridge_export_dialog.png)
 
 To change a library workflow, pick it in *open a library workflow to edit...*: it opens in a new tab with its roles and knobs set, ready to change and save again. Muted or bypassed nodes, and knobs on an input fed by a link, are left out (the dialog says which). Roles and settings are kept in the UI workflow, so saving it in ComfyUI keeps them for the next export.
 
